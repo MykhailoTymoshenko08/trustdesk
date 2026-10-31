@@ -6,7 +6,7 @@ from typing import TypeVar
 
 from pydantic import BaseModel
 
-from app.schemas import QaJudgement, ReplyTemplate, SameRootCause, TriageDraft
+from app.schemas import GotchaDraft, QaJudgement, ReplyTemplate, SameRootCause, TriageDraft
 
 T = TypeVar("T", bound=BaseModel)
 
@@ -178,6 +178,11 @@ class MockLLM:
             return mock_triage(prompt)  # type: ignore[return-value]
         if schema is SameRootCause:
             return mock_same_cause(prompt)  # type: ignore[return-value]
+        if schema is GotchaDraft:
+            return GotchaDraft(  # type: ignore[return-value]
+                symptom="After moving a lesson, the new time is shown one hour earlier than the family chose.",
+                support_answer="Apologise and confirm the time shift is a known bug from the latest release that is being fixed. "
+                               "Tell the family the correct lesson time and offer one free lesson if they missed it.")
         if schema is QaJudgement:
             return mock_qa(prompt)  # type: ignore[return-value]
         if schema is ReplyTemplate:

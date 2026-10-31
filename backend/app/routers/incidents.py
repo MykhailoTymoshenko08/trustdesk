@@ -5,8 +5,8 @@ from sqlalchemy.orm import Session
 from app.db import get_db
 from app.errors import ApiError
 from app.models import Incident, Ticket
-from app.schemas import DevCard, ExecuteIn, ExecuteOut, IncidentOut, PlanOut
-from app.services import devcard, executor, incidents as isvc, planner, tickets as tsvc
+from app.schemas import DevCard, ExecuteIn, ExecuteOut, GotchaOut, IncidentOut, PlanOut
+from app.services import devcard, executor, gotcha, incidents as isvc, planner, tickets as tsvc
 from app.services.impact import silent_user_rows, ticket_authors
 
 router = APIRouter(prefix="/incidents", tags=["incidents"])
@@ -38,6 +38,12 @@ def incident_detail(incident_id: str, db: Session = Depends(get_db)):
 @router.get("/{incident_id}/devcard", response_model=DevCard)
 def incident_devcard(incident_id: str, db: Session = Depends(get_db)):
     return devcard.build_devcard(db, get_incident(db, incident_id))
+
+
+@router.get("/{incident_id}/gotcha", response_model=GotchaOut)
+def incident_gotcha(incident_id: str, db: Session = Depends(get_db)):
+    """draft of a known-gotchas.md entry to append after the incident (review before committing)"""
+    return gotcha.build_gotcha(db, get_incident(db, incident_id))
 
 
 @router.post("/{incident_id}/plan", response_model=PlanOut)

@@ -188,3 +188,15 @@ class QaEntry(QaVerdict):
     agent: str
     ticket_text: str
     agent_reply: str
+
+
+class GotchaDraft(BaseModel):
+    """model-written parts of a known-gotchas entry; log signature, release and counts come from code"""
+
+    symptom: str = Field(min_length=5, max_length=400)
+    support_answer: str = Field(min_length=5, max_length=600)
+
+
+class GotchaOut(BaseModel):
+    file: str
+    diff: str
