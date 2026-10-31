@@ -15,7 +15,7 @@ import {
 import { api } from "@/lib/api";
 import { timeUtc, usd } from "@/lib/format";
 import { stagger } from "@/lib/motion";
-import type { ActionProposal, ExecuteResult, Incident, IncidentDetail, Plan, PolicyDecision } from "@/lib/types";
+import type { ActionProposal, ExecuteResult, Gotcha, Incident, IncidentDetail, Plan, PolicyDecision } from "@/lib/types";
 import { usePolling } from "@/lib/usePolling";
 
 const LIVE_WINDOW_MS = 6000;
@@ -280,6 +280,82 @@ function ResolutionPanel({ detail, onExecuted }: { detail: IncidentDetail; onExe
   );
 }
 
+function diffLineTone(line: string): string {
+  if (line.startsWith("+++") || line.startsWith("---") || line.startsWith("@@")) return "text-faint";
+  if (line.startsWith("+")) return "text-safe";
+  if (line.startsWith("-")) return "text-signal";
+  return "text-mute";
+}
+
+// drafts a known-gotchas.md entry for review; nothing is written to the repo
+function DocsUpdate({ incidentId }: { incidentId: string }) {
+  const [gotcha, setGotcha] = useState<Gotcha | null>(null);
+  const [mocked, setMocked] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [copied, setCopied] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function suggest() {
+    setBusy(true);
+    setError(null);
+    try {
+      const res = await api.gotcha(incidentId);
+      setGotcha(res.data);
+      setMocked(res.mocked);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "could not draft docs update");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function copy() {
+    if (!gotcha) return;
+    try {
+      await navigator.clipboard.writeText(gotcha.diff);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    } catch {
+      setCopied(false);
+    }
+  }
+
+  return (
+    <section className="mt-24">
+      <div className="flex items-end justify-between gap-6 border-b border-line pb-4">
+        <div>
+          <h2 className="text-[28px] font-semibold tracking-[-0.03em] text-ink">Docs</h2>
+          <p className="mt-1 text-[15px] text-mute">Turn this incident into a known-gotchas entry. A diff for review, nothing is written.</p>
+        </div>
+        <Button onClick={suggest} disabled={busy}>
+          {busy ? "Drafting…" : gotcha ? "Redraft" : "Suggest docs update"}
+        </Button>
+      </div>
+      {error && <p className="mt-4 text-sm text-signal">{error}</p>}
+      {gotcha && (
+        <div className="rise mt-6">
+          <div className="mb-3 flex items-center justify-between gap-4">
+            <span className="font-mono text-[12px] text-mute">
+              {gotcha.file}
+              {mocked && <span className="ml-4 text-faint">sample data - backend gotcha endpoint not available yet</span>}
+            </span>
+            <button onClick={copy} className="text-[13px] text-mute underline underline-offset-4 hover:text-ink">
+              {copied ? "Copied" : "Copy"}
+            </button>
+          </div>
+          <pre className="overflow-x-auto border-l-2 border-faint pl-5 font-mono text-[12.5px] leading-relaxed">
+            {gotcha.diff.split("\n").map((line, i) => (
+              <div key={i} className={`whitespace-pre-wrap ${diffLineTone(line)}`}>
+                {line || " "}
+              </div>
+            ))}
+          </pre>
+        </div>
+      )}
+    </section>
+  );
+}
+
 function IncidentView({ incidentId }: { incidentId: string }) {
   const { data: detail, reload } = usePolling(() => api.incident(incidentId));
   const live = useRecentlyChanged(detail?.incident.ticket_count);
@@ -298,6 +374,8 @@ function IncidentView({ incidentId }: { incidentId: string }) {
       </div>
 
       <ResolutionPanel detail={detail} onExecuted={reload} />
+
+      <DocsUpdate incidentId={incident.id} />
 
       <section className="mt-24">
         <Label className="mb-4">Tickets in this incident ({detail.tickets.length})</Label>
