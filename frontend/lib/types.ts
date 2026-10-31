@@ -101,6 +101,7 @@ export interface ExecuteRequest {
 export interface ExecuteResult {
   executed: number;
   skipped_duplicate: number;
+  skipped_policy: number; // forbidden or not in `include` (added to PLAN section 3 by backend)
   failed: number;
   audit_ids: string[];
 }
@@ -122,7 +123,7 @@ export interface EntryPoint {
   app: string;
   path: string;
   symbol: string;
-  route?: string;
+  route?: string | null;
 }
 
 export interface DevCard {

@@ -48,6 +48,9 @@ export default function DevCardPage() {
             <section>
               <SectionTitle>Entry points</SectionTitle>
               <Card className="divide-y divide-zinc-800/70">
+                {card.entry_points.length === 0 && (
+                  <p className="px-4 py-3 text-sm text-zinc-500">No entry points documented for this feature.</p>
+                )}
                 {card.entry_points.map((e) => (
                   <div key={`${e.path}:${e.symbol}`} className="px-4 py-3">
                     <div className="mb-1 flex items-center gap-2">

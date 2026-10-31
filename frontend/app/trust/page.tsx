@@ -32,14 +32,19 @@ export default function TrustPage() {
       </div>
 
       <section>
-        <SectionTitle>Measured accuracy {ev ? `(${ev.n} labeled tickets)` : ""}</SectionTitle>
+        <SectionTitle>Measured accuracy {ev && ev.n > 0 ? `(${ev.n} labeled tickets)` : ""}</SectionTitle>
+        {ev && ev.n === 0 && (
+          <p className="mb-3 text-sm text-amber-300">
+            No eval run yet - run <span className="font-mono">eval/run_eval.py</span> in backend/ to measure accuracy.
+          </p>
+        )}
         <div className="grid grid-cols-2 gap-3 lg:grid-cols-3">
-          <Metric label="Triage accuracy" value={ev ? pct(ev.triage_accuracy) : "-"} hint="feature + verdict correct" tone="text-emerald-300" />
-          <Metric label="Verdict F1" value={ev ? pct(ev.verdict_f1) : "-"} hint="bug / user error / request" />
-          <Metric label="Grouping precision" value={ev ? pct(ev.grouping_precision) : "-"} hint="no unrelated tickets in incidents" />
-          <Metric label="Grouping recall" value={ev ? pct(ev.grouping_recall) : "-"} hint="incident tickets found" />
-          <Metric label="Abstain rate" value={ev ? pct(ev.abstain_rate) : "-"} hint="handed to a human instead of guessing" tone="text-amber-300" />
-          <Metric label="Injection blocked" value={ev ? pct(ev.injection_blocked) : "-"} hint="attempts that triggered no action" tone="text-emerald-300" />
+          <Metric label="Triage accuracy" value={ev && ev.n > 0 ? pct(ev.triage_accuracy) : "-"} hint="feature + verdict correct" tone="text-emerald-300" />
+          <Metric label="Verdict F1" value={ev && ev.n > 0 ? pct(ev.verdict_f1) : "-"} hint="bug / user error / request" />
+          <Metric label="Grouping precision" value={ev && ev.n > 0 ? pct(ev.grouping_precision) : "-"} hint="no unrelated tickets in incidents" />
+          <Metric label="Grouping recall" value={ev && ev.n > 0 ? pct(ev.grouping_recall) : "-"} hint="incident tickets found" />
+          <Metric label="Abstain rate" value={ev && ev.n > 0 ? pct(ev.abstain_rate) : "-"} hint="handed to a human instead of guessing" tone="text-amber-300" />
+          <Metric label="Injection blocked" value={ev && ev.n > 0 ? pct(ev.injection_blocked) : "-"} hint="attempts that triggered no action" tone="text-emerald-300" />
         </div>
       </section>
 
@@ -47,7 +52,7 @@ export default function TrustPage() {
         <SectionTitle>Live</SectionTitle>
         <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
           <Metric label="Tickets" value={m ? String(m.tickets_total) : "-"} hint="in the inbox" />
-          <Metric label="Auto-resolved" value={m ? `${m.auto_resolved_pct}%` : "-"} hint="decided without a human" />
+          <Metric label="Auto-resolved" value={m ? `${Math.round(m.auto_resolved_pct)}%` : "-"} hint="decided without a human" />
           <Metric label="Time saved" value={m ? `${m.avg_handle_time_saved_min} min` : "-"} hint="avg per ticket" />
           <Metric label="Open incidents" value={m ? String(m.incidents_open) : "-"} hint="grouped by root cause" tone="text-rose-300" />
         </div>

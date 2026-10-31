@@ -250,11 +250,12 @@ function ResolutionPanel({ detail, onExecuted }: { detail: IncidentDetail; onExe
           </Card>
 
           {result && (
-            <Card className="grid grid-cols-3 divide-x divide-zinc-800 text-center">
+            <Card className="grid grid-cols-2 divide-x divide-zinc-800 text-center sm:grid-cols-4">
               <ResultCell label="Executed" value={result.executed} tone="text-emerald-300" />
               <ResultCell label="Skipped duplicates" value={result.skipped_duplicate} tone="text-zinc-100" />
+              <ResultCell label="Blocked by policy" value={result.skipped_policy} tone="text-zinc-100" />
               <ResultCell label="Failed" value={result.failed} tone={result.failed ? "text-rose-300" : "text-zinc-100"} />
-              <p className="col-span-3 border-t border-zinc-800 px-4 py-2.5 text-xs text-zinc-500">
+              <p className="col-span-2 border-t sm:col-span-4 border-t border-zinc-800 px-4 py-2.5 text-xs text-zinc-500">
                 {result.skipped_duplicate > 0 && result.executed === 0
                   ? "Idempotency keys blocked every repeat - nobody was compensated twice. "
                   : ""}

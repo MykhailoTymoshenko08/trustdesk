@@ -130,7 +130,8 @@ function TicketPanel({ ticket }: { ticket: Ticket }) {
   );
 }
 
-const DEMO_USER = "u_070";
+// must be an existing seeded user, not part of the incident (u_001-u_047)
+const DEMO_USER = process.env.NEXT_PUBLIC_DEMO_USER ?? "u_059";
 const PRESETS = [
   { label: "Homework question", text: "Дитина закінчила урок, а домашки не бачу в застосунку. Де вона?" },
   {

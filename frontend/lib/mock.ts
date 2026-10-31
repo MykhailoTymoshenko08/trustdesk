@@ -357,10 +357,13 @@ export async function createPlan(id: string): Promise<Plan> {
 export async function executePlan(id: string, req: ExecuteRequest): Promise<ExecuteResult> {
   const proposals = store.plans.get(req.plan_id);
   if (!proposals || !store.incident || store.incident.id !== id) throw new Error("unknown plan");
-  const result: ExecuteResult = { executed: 0, skipped_duplicate: 0, failed: 0, audit_ids: [] };
+  const result: ExecuteResult = { executed: 0, skipped_duplicate: 0, skipped_policy: 0, failed: 0, audit_ids: [] };
   for (const p of proposals) {
     const decision = p.policy.decision;
-    if (decision === "forbidden" || !req.include.includes(decision)) continue;
+    if (decision === "forbidden" || !req.include.includes(decision)) {
+      result.skipped_policy++;
+      continue;
+    }
     const duplicate = store.executedKeys.has(p.idempotency_key);
     const entry: AuditEntry = {
       id: `a_${++store.auditSeq}`,
