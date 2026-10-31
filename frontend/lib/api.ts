@@ -7,14 +7,27 @@ import type {
   ExecuteResult,
   Incident,
   IncidentDetail,
+  Gotcha,
   Metrics,
   NewTicket,
   Plan,
+  QaItem,
+  QaScoreRequest,
+  Sourced,
   Ticket,
 } from "./types";
 
 export const USE_MOCK = process.env.NEXT_PUBLIC_USE_MOCK === "true";
 const BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000/api";
+
+export class ApiError extends Error {
+  constructor(
+    message: string,
+    readonly status: number,
+  ) {
+    super(message);
+  }
+}
 
 async function http<T>(path: string, init?: RequestInit): Promise<T> {
   const res = await fetch(`${BASE}${path}`, {
@@ -23,7 +36,7 @@ async function http<T>(path: string, init?: RequestInit): Promise<T> {
   });
   if (!res.ok) {
     const body = await res.json().catch(() => null);
-    throw new Error(body?.error?.message ?? `request failed: ${res.status}`);
+    throw new ApiError(body?.error?.message ?? `request failed: ${res.status}`, res.status);
   }
   return res.json() as Promise<T>;
 }
@@ -32,6 +45,19 @@ const post = <T>(path: string, body?: unknown): Promise<T> =>
   http<T>(path, { method: "POST", body: body === undefined ? undefined : JSON.stringify(body) });
 
 const mock = () => import("./mock");
+
+// endpoints the backend may not have yet: fall back to sample data on 404/405 and say so
+async function orSample<T>(real: () => Promise<T>, sample: () => Promise<T>): Promise<Sourced<T>> {
+  if (USE_MOCK) return { data: await sample(), mocked: true };
+  try {
+    return { data: await real(), mocked: false };
+  } catch (e) {
+    if (e instanceof ApiError && (e.status === 404 || e.status === 405)) {
+      return { data: await sample(), mocked: true };
+    }
+    throw e;
+  }
+}
 
 export const api = {
   tickets: async (params?: { status?: string; incident_id?: string }): Promise<Ticket[]> => {
@@ -61,6 +87,15 @@ export const api = {
     USE_MOCK ? (await mock()).getEval() : http<EvalReport>("/eval"),
   metrics: async (): Promise<Metrics> =>
     USE_MOCK ? (await mock()).getMetrics() : http<Metrics>("/metrics"),
+  qa: async (): Promise<Sourced<QaItem[]>> =>
+    orSample(() => http<QaItem[]>("/qa"), async () => (await mock()).listQa()),
+  qaScore: async (body: QaScoreRequest): Promise<Sourced<QaItem>> =>
+    orSample(() => post<QaItem>("/qa/score", body), async () => (await mock()).scoreReply(body)),
+  gotcha: async (incidentId: string): Promise<Sourced<Gotcha>> =>
+    orSample(
+      () => http<Gotcha>(`/incidents/${incidentId}/gotcha`),
+      async () => (await mock()).getGotcha(incidentId),
+    ),
   demoReset: async (): Promise<{ ok: boolean }> =>
     USE_MOCK ? (await mock()).resetDemo() : post<{ ok: boolean }>("/demo/reset"),
   demoWave: async (): Promise<{ started: boolean }> =>

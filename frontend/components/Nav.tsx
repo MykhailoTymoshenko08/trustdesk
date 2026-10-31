@@ -11,6 +11,7 @@ const LINKS = [
   { href: "/incidents", label: "Incidents" },
   { href: "/devcard", label: "Dev card" },
   { href: "/audit", label: "Audit" },
+  { href: "/qa", label: "QA" },
   { href: "/trust", label: "Trust" },
 ];
 
