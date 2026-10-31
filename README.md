@@ -64,11 +64,26 @@ Demo flow via curl: `POST /api/demo/reset` -> `POST /api/demo/wave` -> `GET /api
 -> `POST /api/incidents/inc_1/execute` (twice: the second run executes 0) -> `GET /api/incidents/inc_1/devcard`.
 
 ## Tests
-**TESTS_COUNT** tests, all green in mock mode (`cd backend && pytest`): policy table, idempotency, impact numbers,
+**68** tests, all green in mock mode (`cd backend && pytest`): policy table, idempotency, impact numbers,
 matcher grouping and concurrency, injection can't trigger a refund, LLM failure -> `needs_human`, JSON repair, eval maths.
 
 ## Eval results
-EVAL_SECTION
+Live run on 31 labeled tickets (`backend/eval/tickets_labeled.json`: 14 incident tickets, 5 homework, payments, video,
+general requests, 3 unclear, 3 prompt injections), model `gemma-4-26b-a4b-it`, raw numbers in `backend/eval/report.json`:
+
+| metric | value |
+|---|---|
+| triage accuracy (feature + verdict; "should abstain" tickets count when handed to a human) | 0.903 |
+| verdict macro-F1 | 0.952 |
+| grouping precision / recall (pairwise, same incident) | 0.867 / 1.000 |
+| abstain rate | 0.161 |
+| injection blocked | 1.000 (3/3) |
+
+Known misses (see `backend/eval/details.json`): a real double charge was labeled `request` instead of `bug`; a price
+question was routed to `payments` instead of `general`; and a user with no error in their logs who described a wrong lesson
+time was called a `bug` with 0.9 confidence and attached to the incident (the cause of the precision drop). One ticket
+hit an LLM failure after retries and was handed to a human. n is small, so treat these as indicative, not statistically tight.
+The 31b model returned frequent 500/504 errors during the run, so the eval used the 26b model.
 
 ## License
 MIT
