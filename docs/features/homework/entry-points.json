@@ -1,0 +1,32 @@
+[
+  {
+    "app": "backend",
+    "path": "app/lessons/complete.py",
+    "symbol": "complete_lesson",
+    "route": "POST /lessons/{id}/complete"
+  },
+  {
+    "app": "backend",
+    "path": "app/homework/generator.py",
+    "symbol": "generate_homework_set",
+    "route": null
+  },
+  {
+    "app": "backend",
+    "path": "app/homework/api.py",
+    "symbol": "get_lesson_homework",
+    "route": "GET /lessons/{id}/homework"
+  },
+  {
+    "app": "backend",
+    "path": "app/homework/api.py",
+    "symbol": "submit_answer",
+    "route": "POST /homework/{id}/answers"
+  },
+  {
+    "app": "frontend",
+    "path": "web/src/features/homework/HomeworkTab.tsx",
+    "symbol": "HomeworkTab",
+    "route": "/kids/lessons/[id]/homework"
+  }
+]

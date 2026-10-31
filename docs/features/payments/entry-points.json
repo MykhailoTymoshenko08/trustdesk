@@ -1,0 +1,38 @@
+[
+  {
+    "app": "backend",
+    "path": "app/payments/checkout.py",
+    "symbol": "create_checkout",
+    "route": "POST /payments/checkout"
+  },
+  {
+    "app": "backend",
+    "path": "app/payments/webhooks.py",
+    "symbol": "handle_payment_webhook",
+    "route": "POST /webhooks/payments"
+  },
+  {
+    "app": "backend",
+    "path": "app/payments/refunds.py",
+    "symbol": "refund_payment",
+    "route": "POST /payments/{id}/refund"
+  },
+  {
+    "app": "backend",
+    "path": "app/payments/credits.py",
+    "symbol": "consume_credit",
+    "route": null
+  },
+  {
+    "app": "backend",
+    "path": "app/payments/renewals.py",
+    "symbol": "run_subscription_renewals",
+    "route": null
+  },
+  {
+    "app": "frontend",
+    "path": "web/src/features/billing/BuyLessons.tsx",
+    "symbol": "BuyLessons",
+    "route": "/billing/buy"
+  }
+]
