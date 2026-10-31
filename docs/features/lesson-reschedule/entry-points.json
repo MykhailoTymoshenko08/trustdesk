@@ -1,0 +1,32 @@
+[
+  {
+    "app": "backend",
+    "path": "app/lessons/reschedule.py",
+    "symbol": "reschedule_lesson",
+    "route": "POST /lessons/{id}/reschedule"
+  },
+  {
+    "app": "backend",
+    "path": "app/lessons/slots.py",
+    "symbol": "list_free_slots",
+    "route": "GET /lessons/{id}/slots"
+  },
+  {
+    "app": "backend",
+    "path": "app/lessons/timezones.py",
+    "symbol": "local_to_utc",
+    "route": null
+  },
+  {
+    "app": "backend",
+    "path": "app/notifications/reminders.py",
+    "symbol": "send_lesson_reminders",
+    "route": null
+  },
+  {
+    "app": "frontend",
+    "path": "web/src/features/lessons/RescheduleDialog.tsx",
+    "symbol": "RescheduleDialog",
+    "route": "/lessons/[id]"
+  }
+]
