@@ -11,8 +11,9 @@ import type {
   Metrics,
   NewTicket,
   Plan,
-  QaItem,
+  QaEntry,
   QaScoreRequest,
+  QaVerdict,
   Sourced,
   Ticket,
 } from "./types";
@@ -24,6 +25,7 @@ export class ApiError extends Error {
   constructor(
     message: string,
     readonly status: number,
+    readonly code?: string,
   ) {
     super(message);
   }
@@ -36,7 +38,7 @@ async function http<T>(path: string, init?: RequestInit): Promise<T> {
   });
   if (!res.ok) {
     const body = await res.json().catch(() => null);
-    throw new ApiError(body?.error?.message ?? `request failed: ${res.status}`, res.status);
+    throw new ApiError(body?.error?.message ?? `request failed: ${res.status}`, res.status, body?.error?.code);
   }
   return res.json() as Promise<T>;
 }
@@ -52,7 +54,8 @@ async function orSample<T>(real: () => Promise<T>, sample: () => Promise<T>): Pr
   try {
     return { data: await real(), mocked: false };
   } catch (e) {
-    if (e instanceof ApiError && (e.status === 404 || e.status === 405)) {
+    // only a route that does not exist (no error code in the body) falls back, never a real not-found
+    if (e instanceof ApiError && (e.status === 404 || e.status === 405) && !e.code) {
       return { data: await sample(), mocked: true };
     }
     throw e;
@@ -87,10 +90,10 @@ export const api = {
     USE_MOCK ? (await mock()).getEval() : http<EvalReport>("/eval"),
   metrics: async (): Promise<Metrics> =>
     USE_MOCK ? (await mock()).getMetrics() : http<Metrics>("/metrics"),
-  qa: async (): Promise<Sourced<QaItem[]>> =>
-    orSample(() => http<QaItem[]>("/qa"), async () => (await mock()).listQa()),
-  qaScore: async (body: QaScoreRequest): Promise<Sourced<QaItem>> =>
-    orSample(() => post<QaItem>("/qa/score", body), async () => (await mock()).scoreReply(body)),
+  qa: async (): Promise<Sourced<QaEntry[]>> =>
+    orSample(() => http<QaEntry[]>("/qa"), async () => (await mock()).listQa()),
+  qaScore: async (body: QaScoreRequest): Promise<Sourced<QaVerdict>> =>
+    orSample(() => post<QaVerdict>("/qa/score", body), async () => (await mock()).scoreReply(body)),
   gotcha: async (incidentId: string): Promise<Sourced<Gotcha>> =>
     orSample(
       () => http<Gotcha>(`/incidents/${incidentId}/gotcha`),

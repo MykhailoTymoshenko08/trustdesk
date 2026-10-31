@@ -159,28 +159,31 @@ export interface NewTicket {
   channel: string;
 }
 
-// QA of human agent replies - proposed shape, not yet in PLAN section 3 (backend S1 pending)
-// scores are 0-100 integers
-export interface QaItem {
-  id: string;
-  ticket_id: string | null;
-  agent: string;
-  reply: string;
+// QA of human agent replies - PLAN section 3 (POST /qa/score, GET /qa); scores are 0-100
+export interface QaVerdict {
+  accuracy: number;
+  empathy: number;
+  resolved: boolean;
   score: number;
-  scores: { accuracy: number; empathy: number; resolved: boolean };
   issues: string[];
   better_reply: string;
-  created_at: string;
+}
+
+export interface QaEntry extends QaVerdict {
+  id: string;
+  ticket_id: string;
+  agent: string;
+  ticket_text: string;
+  agent_reply: string;
 }
 
 export interface QaScoreRequest {
-  ticket_id: string | null;
-  reply: string;
+  ticket_id: string;
+  agent_reply: string;
 }
 
-// GET /incidents/{id}/gotcha - proposed shape (S2): a unified diff for known-gotchas.md
+// GET /incidents/{id}/gotcha - PLAN section 3: markdown to append, nothing is written to disk
 export interface Gotcha {
-  feature: string;
   file: string;
   diff: string;
 }
