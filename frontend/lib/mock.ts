@@ -4,8 +4,11 @@ import type {
   AuditEntry,
   DevCard,
   EvalReport,
+  Gotcha,
   Metrics,
   NewTicket,
+  QaItem,
+  QaScoreRequest,
   Evidence,
   ExecuteRequest,
   ExecuteResult,
@@ -550,4 +553,118 @@ export async function getMetrics(): Promise<Metrics> {
     avg_handle_time_saved_min: 4.2,
     incidents_open: store.incident && store.incident.status !== "resolved" ? 1 : 0,
   });
+}
+
+// --- QA of human replies (sample data) -----------------------------------
+
+const QA_SEED: QaItem[] = [
+  {
+    id: "qa_1",
+    ticket_id: "t_101",
+    agent: "Marta",
+    reply: "Вибачте за незручності! Ми знайшли помилку в перенесенні уроків після релізу v2.14 і вже виправляємо її. Додали вам безкоштовний урок.",
+    score: 92,
+    scores: { accuracy: 95, empathy: 90, resolved: true },
+    issues: [],
+    better_reply: "Вибачте за незручності! Ми знайшли помилку в перенесенні уроків після релізу v2.14 і вже виправляємо її. Додали вам безкоштовний урок - він з'явиться в розкладі сьогодні.",
+    created_at: iso(NOW - 3 * 3_600_000),
+  },
+  {
+    id: "qa_2",
+    ticket_id: "t_012",
+    agent: "Denys",
+    reply: "Домашка з'являється сама. Почекайте.",
+    score: 48,
+    scores: { accuracy: 70, empathy: 20, resolved: false },
+    issues: [
+      "Cold tone: no greeting, no acknowledgement of the worry.",
+      "Does not say when homework appears (after the tutor completes the lesson).",
+      "No next step if homework does not show up.",
+    ],
+    better_reply: "Дякуємо за звернення! Домашнє завдання з'являється після того, як репетитор завершить урок у системі, зазвичай протягом 15 хвилин. Якщо за годину його не буде, напишіть нам, і ми розберемося.",
+    created_at: iso(NOW - 2 * 3_600_000),
+  },
+  {
+    id: "qa_3",
+    ticket_id: "t_017",
+    agent: "Marta",
+    reply: "Ми повернемо вам гроші за дубль, зазвичай це 1-3 дні. Передали запит колезі для підтвердження.",
+    score: 81,
+    scores: { accuracy: 85, empathy: 70, resolved: true },
+    issues: ["Promises a refund before approval; say it is pending confirmation."],
+    better_reply: "Бачимо два однакові списання за пакет. Передали запит на повернення колезі для підтвердження і відповімо протягом доби.",
+    created_at: iso(NOW - 80 * 60_000),
+  },
+  {
+    id: "qa_4",
+    ticket_id: "t_021",
+    agent: "Denys",
+    reply: "Спробуйте інший браузер.",
+    score: 55,
+    scores: { accuracy: 60, empathy: 40, resolved: false },
+    issues: ["Generic advice, no diagnosis.", "Does not ask which device or browser the family uses."],
+    better_reply: "Дякуємо, що написали. Підкажіть, будь ласка, з якого пристрою і браузера ви заходите? Тим часом спробуйте оновити сторінку - якщо відео не з'явиться, ми підключимо інженера.",
+    created_at: iso(NOW - 30 * 60_000),
+  },
+];
+
+const qaStore: QaItem[] = [...QA_SEED];
+let qaSeq = 100;
+
+export async function listQa(): Promise<QaItem[]> {
+  return latency(qaStore);
+}
+
+const EMPATHY_RE = /вибачт|дякуємо|розуміємо|sorry|apolog|thank/i;
+const ACTION_RE = /додал|виправ|поверн|передал|перевір|fixed|refund|added|checked/i;
+const RUDE_RE = /сам[іи]? винн|не наша проблема|your fault/i;
+
+// stand-in for the model: simple heuristics so the page behaves sensibly offline
+export async function scoreReply(req: QaScoreRequest): Promise<QaItem> {
+  const reply = req.reply.trim();
+  const issues: string[] = [];
+  const empathy = EMPATHY_RE.test(reply) ? 85 : 25;
+  const acts = ACTION_RE.test(reply);
+  if (empathy < 50) issues.push("No acknowledgement of the customer's problem or apology.");
+  if (!acts) issues.push("No concrete action or next step.");
+  if (reply.length < 60) issues.push("Too short to resolve the question.");
+  if (RUDE_RE.test(reply)) issues.push("Blames the customer.");
+  const accuracy = RUDE_RE.test(reply) ? 30 : acts ? 80 : 55;
+  const score = Math.max(10, Math.round(accuracy * 0.5 + empathy * 0.3 + (acts ? 20 : 0)) - issues.length * 3);
+  const item: QaItem = {
+    id: `qa_${++qaSeq}`,
+    ticket_id: req.ticket_id,
+    agent: "you",
+    reply,
+    score: Math.min(score, 100),
+    scores: { accuracy, empathy, resolved: acts },
+    issues,
+    better_reply:
+      "Дякуємо за звернення, і вибачте за незручності! Ми вже перевіряємо ваше питання та повернемось з відповіддю протягом години. Якщо щось зміниться раніше - напишемо вам.",
+    created_at: new Date().toISOString(),
+  };
+  qaStore.unshift(item);
+  return latency(item, 600);
+}
+
+// --- docs update suggestion (sample data) --------------------------------
+
+export async function getGotcha(incidentId: string): Promise<Gotcha> {
+  void incidentId;
+  const file = "docs/features/lesson-reschedule/known-gotchas.md";
+  const diff = [
+    `--- a/${file}`,
+    `+++ b/${file}`,
+    "@@ -12,3 +12,10 @@",
+    " - reminders are generated from `lessons.starts_at` in UTC.",
+    " - never convert a stored time twice.",
+    "+",
+    "+## Release v2.14: timezone offset applied twice (ERR_TZ_SHIFT)",
+    "+- Symptom: a rescheduled lesson is stored 1h earlier than the time the parent picked.",
+    "+- Cause: `reschedule_lesson` converts local time to UTC, then `local_to_utc` is applied again.",
+    "+- Signal: `reschedule_ok ... stored != new` with `ERR_TZ_SHIFT` in events.",
+    "+- Impact: 47 families, 19 missed lessons. Affected users get a proactive message + 1 free lesson.",
+    "+- Check before release: assert stored UTC equals the picked slot in the family timezone.",
+  ].join("\n");
+  return latency({ feature: "lesson-reschedule", file, diff });
 }
