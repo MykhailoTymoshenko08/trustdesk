@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { Badge, Card, PolicyBadge, SectionTitle, VerdictBadge } from "@/components/ui";
 import { api } from "@/lib/api";
@@ -257,7 +258,10 @@ function ResolutionPanel({ detail, onExecuted }: { detail: IncidentDetail; onExe
                 {result.skipped_duplicate > 0 && result.executed === 0
                   ? "Idempotency keys blocked every repeat - nobody was compensated twice. "
                   : ""}
-                {result.audit_ids.length} audit entries written.
+                {result.audit_ids.length} audit entries written.{" "}
+                <Link href="/audit" className="text-zinc-300 underline underline-offset-2 hover:text-white">
+                  View audit log →
+                </Link>
               </p>
             </Card>
           )}
@@ -302,7 +306,12 @@ function IncidentView({ incidentId }: { incidentId: string }) {
             </Badge>
           </div>
         </div>
-        <LiveCounter value={incident.ticket_count} live={live} />
+        <div className="flex flex-col items-end gap-3">
+          <LiveCounter value={incident.ticket_count} live={live} />
+          <Link href="/devcard" className="text-sm text-zinc-400 underline underline-offset-2 hover:text-zinc-100">
+            Open dev card →
+          </Link>
+        </div>
       </div>
 
       <ImpactCards incident={incident} />

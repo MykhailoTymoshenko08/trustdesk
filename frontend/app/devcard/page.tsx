@@ -7,12 +7,11 @@ import { usd } from "@/lib/format";
 import { usePolling } from "@/lib/usePolling";
 
 export default function DevCardPage() {
-  const { data: incidents } = usePolling(() => api.incidents(), 4000);
-  const incidentId = incidents?.[0]?.id;
-  const { data: card, error } = usePolling(
-    () => (incidentId ? api.devcard(incidentId) : Promise.resolve(null)),
-    5000,
-  );
+  const { data, error } = usePolling(async () => {
+    const [incident] = await api.incidents();
+    return { card: incident ? await api.devcard(incident.id) : null };
+  }, 4000);
+  const card = data?.card ?? null;
   const [copied, setCopied] = useState(false);
 
   async function copy() {
@@ -34,7 +33,7 @@ export default function DevCardPage() {
         {error && <p className="mt-2 text-sm text-rose-400">{error}</p>}
       </div>
 
-      {incidents && incidents.length === 0 && (
+      {data && !card && (
         <Card className="p-10 text-center text-zinc-400">No incident yet - a dev card appears when one is detected.</Card>
       )}
 

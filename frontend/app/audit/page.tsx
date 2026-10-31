@@ -23,7 +23,7 @@ function canRollback(e: AuditEntry): boolean {
 export default function AuditPage() {
   const { data, error, reload } = usePolling(() => api.audit());
   const [limit, setLimit] = useState(PAGE);
-  const [onlyOk, setOnlyOk] = useState(false);
+  const [onlyOk, setOnlyOk] = useState(true);
   const [actionError, setActionError] = useState<string | null>(null);
   const [pending, setPending] = useState<string | null>(null);
 
@@ -57,7 +57,7 @@ export default function AuditPage() {
         </div>
         <label className="flex items-center gap-2 text-sm text-zinc-400">
           <input type="checkbox" checked={onlyOk} onChange={(e) => setOnlyOk(e.target.checked)} className="size-4 accent-emerald-400" />
-          Hide skipped duplicates
+          Hide skipped duplicates ({(data ?? []).filter((e) => e.result === "skipped_duplicate").length})
         </label>
       </div>
       {(error || actionError) && <p className="mb-3 text-sm text-rose-400">{actionError ?? error}</p>}

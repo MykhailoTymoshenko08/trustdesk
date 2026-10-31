@@ -431,7 +431,7 @@ export async function startWave(count = 12, intervalMs = 800): Promise<{ started
 // --- new tickets (keyword triage stands in for the real pipeline) --------
 
 const INJECTION_RE = /ignore .*(rules|instructions)|system:|you are authorized/i;
-const HOMEWORK_RE = /домашн|homework/i;
+const HOMEWORK_RE = /домашк|домашн|homework/i;
 
 function mockTriage(text: string): { triage: Triage; status: Ticket["status"] } {
   if (INJECTION_RE.test(text) && INJECTION_TICKET.triage) {
