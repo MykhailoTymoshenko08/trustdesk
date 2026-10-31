@@ -7,4 +7,5 @@ __pycache__/
 venv/
 node_modules/
 .next/
-backend/eval/report.json
+backend/eval/report.mock.json
+backend/eval/details.mock.json

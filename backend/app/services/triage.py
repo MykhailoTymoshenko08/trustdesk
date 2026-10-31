@@ -38,6 +38,24 @@ def recent_events(db: Session, user_id: str) -> list[Event]:
     return list(db.scalars(q))
 
 
+KEYWORD_FEATURES = {
+    "homework": ("домашк", "домашнє", "дз", "homework"),
+    "payments": ("списал", "двічі", "charge", "refund", "платіж", "гроші", "оплат", "підписк", "payment"),
+    "lesson-reschedule": ("перен", "reschedul", "відклада", "розклад", "час", "moved", "time"),
+}
+DOC_FILES = ("end-to-end-flow.md", "known-gotchas.md")
+
+
+def relevant_features(text: str, events: list[Event]) -> list[str] | None:
+    """features whose docs go into the prompt (keeps it small for token quotas); None = all"""
+    low = text.lower()
+    found = {f for f, words in KEYWORD_FEATURES.items() if any(w in low for w in words)}
+    found |= {e.feature for e in events if e.error_code}  # an error in the logs is always relevant
+    if not found:
+        found = {e.feature for e in events}
+    return sorted(found) or None
+
+
 def resolve_evidence(refs: list[str], events: dict[str, str], docs: dict[str, str]) -> list[Evidence]:
     """keep only refs that exist; text always comes from our data, never from the model"""
     out, seen = [], set()
@@ -62,7 +80,7 @@ def build_triage(user_text: str, events: list[Event]) -> Triage:
     threshold = get_settings().triage_confidence_threshold
     injected = detect_injection(user_text)
     ev_map = {e.id: format_event(e) for e in events}
-    chunks = docs_loader.load_chunks()
+    chunks = docs_loader.load_chunks(relevant_features(user_text, events), DOC_FILES)
     doc_map = {c.ref: c.text for c in chunks}
     prompt = build_triage_prompt(user_text, list(ev_map.items()), list(doc_map.items()))
     try:

@@ -1,5 +1,7 @@
 """gemma wrapper: prompt -> validated pydantic object, with retries, json repair and mock mode"""
 import logging
+import re
+import threading
 import time
 from collections.abc import Callable
 from typing import Protocol, TypeVar
@@ -13,6 +15,18 @@ log = logging.getLogger(__name__)
 T = TypeVar("T", bound=BaseModel)
 
 TRANSPORT_RETRIES = 2
+MAX_RATE_LIMIT_WAITS = 6
+MAX_WAIT_S = 30.0
+_RETRY_IN = re.compile(r"retry in ([\d.]+)s", re.I)
+
+
+def rate_limit_delay(exc: Exception) -> float | None:
+    """seconds to wait if the error is a 429 quota error, else None"""
+    text = str(exc)
+    if "429" not in text and "RESOURCE_EXHAUSTED" not in text:
+        return None
+    m = _RETRY_IN.search(text)
+    return min(float(m.group(1)) + 1.0 if m else 15.0, MAX_WAIT_S)
 
 
 class LLMUnavailable(Exception):
@@ -52,20 +66,22 @@ class GeminiLLM:
         self._complete_fn = complete
         self._sleep = sleep
         self._client = None
+        self._client_lock = threading.Lock()
 
     def _sdk(self):
-        if self._client is None:
-            from google import genai
-            from google.genai import types
+        with self._client_lock:  # one shared client; concurrent creation closed clients under other threads
+            if self._client is None:
+                from google import genai
+                from google.genai import types
 
-            s = get_settings()
-            if not s.gemini_api_key:
-                raise LLMUnavailable("GEMINI_API_KEY is not set")
-            self._client = genai.Client(
-                api_key=s.gemini_api_key,
-                http_options=types.HttpOptions(timeout=int(s.llm_timeout_s * 1000)),
-            )
-        return self._client
+                s = get_settings()
+                if not s.gemini_api_key:
+                    raise LLMUnavailable("GEMINI_API_KEY is not set")
+                self._client = genai.Client(
+                    api_key=s.gemini_api_key,
+                    http_options=types.HttpOptions(timeout=int(s.llm_timeout_s * 1000)),
+                )
+            return self._client
 
     def _complete(self, prompt: str) -> str:
         if self._complete_fn:
@@ -81,17 +97,25 @@ class GeminiLLM:
 
     def _call(self, prompt: str) -> str:
         last: Exception | None = None
-        for attempt in range(TRANSPORT_RETRIES + 1):
+        attempt = waits = 0
+        while attempt <= TRANSPORT_RETRIES:
             try:
                 return self._complete(prompt)
             except LLMUnavailable:
                 raise
             except Exception as exc:  # sdk raises many error types
                 last = exc
-                log.warning("llm call failed (attempt %s): %s", attempt + 1, exc)
+                delay = rate_limit_delay(exc)
+                if delay is not None and waits < MAX_RATE_LIMIT_WAITS:  # quota: wait as told, not a failure
+                    waits += 1
+                    log.info("rate limited, waiting %.0fs", delay)
+                    self._sleep(delay)
+                    continue
+                log.warning("llm call failed (attempt %s): %s", attempt + 1, str(exc)[:200])
                 if attempt < TRANSPORT_RETRIES:
                     self._sleep(2**attempt)
-        raise LLMUnavailable(f"llm call failed: {last}")
+                attempt += 1
+        raise LLMUnavailable(f"llm call failed: {str(last)[:200]}")
 
     def generate_json(self, prompt: str, schema: type[T]) -> T:
         full = _with_schema(prompt, schema)
@@ -120,9 +144,8 @@ class GeminiLLM:
                 raise
             except Exception as exc:
                 last = exc
-                if attempt < TRANSPORT_RETRIES:
-                    self._sleep(2**attempt)
-        raise LLMUnavailable(f"embedding failed: {last}")
+                self._sleep(rate_limit_delay(exc) or 2**attempt) if attempt < TRANSPORT_RETRIES else None
+        raise LLMUnavailable(f"embedding failed: {str(last)[:200]}")
 
 
 _llm: LLM | None = None

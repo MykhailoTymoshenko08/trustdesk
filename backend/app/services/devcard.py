@@ -30,7 +30,7 @@ def repro_steps(db: Session, inc: Incident, sample: list[str]) -> list[str]:
 
 
 def build_markdown(inc: Incident, entry_points: list[dict], steps: list[str], impact: Impact) -> str:
-    eps = "\n".join(f"- `{e.get('path')}` · `{e.get('symbol')}` · `{e.get('route', '')}`" for e in entry_points) or "- (not documented)"
+    eps = "\n".join(f"- `{e.get('path')}` · `{e.get('symbol')}` · `{e.get('route') or '-'}`" for e in entry_points) or "- (not documented)"
     money = f"${impact.money_at_risk_cents / 100:,.2f}"
     return (
         f"## {inc.title}\n\n"
