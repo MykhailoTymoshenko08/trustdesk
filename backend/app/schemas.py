@@ -174,7 +174,7 @@ class QaJudgement(BaseModel):
 
 
 class QaScoreIn(BaseModel):
-    ticket_id: str
+    ticket_id: str = Field(min_length=1)  # missing or empty -> 422
     agent_reply: str = Field(min_length=1, max_length=4000)
 
 
