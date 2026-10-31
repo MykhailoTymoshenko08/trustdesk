@@ -7,8 +7,9 @@ import type {
   Gotcha,
   Metrics,
   NewTicket,
-  QaItem,
+  QaEntry,
   QaScoreRequest,
+  QaVerdict,
   Evidence,
   ExecuteRequest,
   ExecuteResult,
@@ -557,61 +558,56 @@ export async function getMetrics(): Promise<Metrics> {
 
 // --- QA of human replies (sample data) -----------------------------------
 
-const QA_SEED: QaItem[] = [
+const QA_SEED: QaEntry[] = [
   {
     id: "qa_1",
     ticket_id: "t_101",
     agent: "Marta",
-    reply: "Вибачте за незручності! Ми знайшли помилку в перенесенні уроків після релізу v2.14 і вже виправляємо її. Додали вам безкоштовний урок.",
-    score: 92,
-    scores: { accuracy: 95, empathy: 90, resolved: true },
+    ticket_text: WAVE_TEXTS[0][0],
+    agent_reply: "Вибачте за незручності! Ми знайшли помилку в перенесенні уроків після релізу v2.14 і вже виправляємо її. Додали вам безкоштовний урок.",
+    accuracy: 95,
+    empathy: 90,
+    resolved: true,
+    score: 94,
     issues: [],
     better_reply: "Вибачте за незручності! Ми знайшли помилку в перенесенні уроків після релізу v2.14 і вже виправляємо її. Додали вам безкоштовний урок - він з'явиться в розкладі сьогодні.",
-    created_at: iso(NOW - 3 * 3_600_000),
   },
   {
     id: "qa_2",
     ticket_id: "t_012",
     agent: "Denys",
-    reply: "Домашка з'являється сама. Почекайте.",
-    score: 48,
-    scores: { accuracy: 70, empathy: 20, resolved: false },
+    ticket_text: HOMEWORK_TICKET.text,
+    agent_reply: "Домашка з'являється сама. Почекайте.",
+    accuracy: 70,
+    empathy: 20,
+    resolved: false,
+    score: 41,
     issues: [
       "Cold tone: no greeting, no acknowledgement of the worry.",
       "Does not say when homework appears (after the tutor completes the lesson).",
       "No next step if homework does not show up.",
     ],
     better_reply: "Дякуємо за звернення! Домашнє завдання з'являється після того, як репетитор завершить урок у системі, зазвичай протягом 15 хвилин. Якщо за годину його не буде, напишіть нам, і ми розберемося.",
-    created_at: iso(NOW - 2 * 3_600_000),
   },
   {
     id: "qa_3",
     ticket_id: "t_017",
     agent: "Marta",
-    reply: "Ми повернемо вам гроші за дубль, зазвичай це 1-3 дні. Передали запит колезі для підтвердження.",
-    score: 81,
-    scores: { accuracy: 85, empathy: 70, resolved: true },
+    ticket_text: DOUBLE_CHARGE_TICKET.text,
+    agent_reply: "Ми повернемо вам гроші за дубль, зазвичай це 1-3 дні. Передали запит колезі для підтвердження.",
+    accuracy: 85,
+    empathy: 70,
+    resolved: true,
+    score: 82,
     issues: ["Promises a refund before approval; say it is pending confirmation."],
     better_reply: "Бачимо два однакові списання за пакет. Передали запит на повернення колезі для підтвердження і відповімо протягом доби.",
-    created_at: iso(NOW - 80 * 60_000),
-  },
-  {
-    id: "qa_4",
-    ticket_id: "t_021",
-    agent: "Denys",
-    reply: "Спробуйте інший браузер.",
-    score: 55,
-    scores: { accuracy: 60, empathy: 40, resolved: false },
-    issues: ["Generic advice, no diagnosis.", "Does not ask which device or browser the family uses."],
-    better_reply: "Дякуємо, що написали. Підкажіть, будь ласка, з якого пристрою і браузера ви заходите? Тим часом спробуйте оновити сторінку - якщо відео не з'явиться, ми підключимо інженера.",
-    created_at: iso(NOW - 30 * 60_000),
   },
 ];
 
-const qaStore: QaItem[] = [...QA_SEED];
+const qaStore: QaEntry[] = [...QA_SEED];
 let qaSeq = 100;
 
-export async function listQa(): Promise<QaItem[]> {
+export async function listQa(): Promise<QaEntry[]> {
   return latency(qaStore);
 }
 
@@ -620,8 +616,8 @@ const ACTION_RE = /додал|виправ|поверн|передал|пере�
 const RUDE_RE = /сам[іи]? винн|не наша проблема|your fault/i;
 
 // stand-in for the model: simple heuristics so the page behaves sensibly offline
-export async function scoreReply(req: QaScoreRequest): Promise<QaItem> {
-  const reply = req.reply.trim();
+export async function scoreReply(req: QaScoreRequest): Promise<QaVerdict> {
+  const reply = req.agent_reply.trim();
   const issues: string[] = [];
   const empathy = EMPATHY_RE.test(reply) ? 85 : 25;
   const acts = ACTION_RE.test(reply);
@@ -630,21 +626,27 @@ export async function scoreReply(req: QaScoreRequest): Promise<QaItem> {
   if (reply.length < 60) issues.push("Too short to resolve the question.");
   if (RUDE_RE.test(reply)) issues.push("Blames the customer.");
   const accuracy = RUDE_RE.test(reply) ? 30 : acts ? 80 : 55;
-  const score = Math.max(10, Math.round(accuracy * 0.5 + empathy * 0.3 + (acts ? 20 : 0)) - issues.length * 3);
-  const item: QaItem = {
+  const score = Math.round(0.5 * accuracy + 0.3 * empathy + 0.2 * (acts ? 100 : 0));
+  const ticket = store.tickets.find((t) => t.id === req.ticket_id);
+  const verdict: QaVerdict = {
+    accuracy,
+    empathy,
+    resolved: acts,
+    score,
+    issues,
+    better_reply:
+      ticket?.triage?.suggested_reply ||
+      "Дякуємо за звернення, і вибачте за незручності! Ми вже перевіряємо ваше питання та повернемось з відповіддю протягом години.",
+  };
+  qaStore.unshift({
     id: `qa_${++qaSeq}`,
     ticket_id: req.ticket_id,
     agent: "you",
-    reply,
-    score: Math.min(score, 100),
-    scores: { accuracy, empathy, resolved: acts },
-    issues,
-    better_reply:
-      "Дякуємо за звернення, і вибачте за незручності! Ми вже перевіряємо ваше питання та повернемось з відповіддю протягом години. Якщо щось зміниться раніше - напишемо вам.",
-    created_at: new Date().toISOString(),
-  };
-  qaStore.unshift(item);
-  return latency(item, 600);
+    ticket_text: ticket?.text ?? "",
+    agent_reply: reply,
+    ...verdict,
+  });
+  return latency(verdict, 600);
 }
 
 // --- docs update suggestion (sample data) --------------------------------
@@ -666,5 +668,5 @@ export async function getGotcha(incidentId: string): Promise<Gotcha> {
     "+- Impact: 47 families, 19 missed lessons. Affected users get a proactive message + 1 free lesson.",
     "+- Check before release: assert stored UTC equals the picked slot in the family timezone.",
   ].join("\n");
-  return latency({ feature: "lesson-reschedule", file, diff });
+  return latency({ file, diff });
 }
