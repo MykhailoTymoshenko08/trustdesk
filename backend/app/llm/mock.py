@@ -133,6 +133,14 @@ ACK_BUG = ("помил", "виправ", "bug", "fix", "проблем", "збі
 ACK_TUTOR = ("репетитор", "tutor", "завершен", "complet")
 
 
+TOPIC = {
+    "homework": ("домашн", "дз", "homework", "репетитор", "tutor"),
+    "lesson-reschedule": ("перен", "reschedul", "час ", "time", "розклад", "годин", "hour"),
+    "payments": ("платіж", "списан", "charge", "payment", "refund", "повернен", "банк", "гроші", "кошти"),
+    "lesson-video": ("відео", "video", "браузер", "browser", "підключ", "connect"),
+}
+
+
 def mock_qa(prompt: str) -> QaJudgement:
     verdict = (re.search(r"verdict=(\w+)", prompt) or [None, "unknown"])[1]
     reply = _section(prompt, "agent_reply").lower()
@@ -159,6 +167,10 @@ def mock_qa(prompt: str) -> QaJudgement:
     if verdict == "bug" and any(k in reply for k in RUDE):
         accuracy = min(accuracy, 30)
         issues.append("Denies a charge that the logs show was duplicated.")
+    feature = (re.search(r"feature=([\w-]+)", prompt) or [None, ""])[1]
+    if feature in TOPIC and not any(k in reply for k in TOPIC[feature]):  # right words, wrong ticket
+        accuracy = min(accuracy, 10)
+        issues.append(f"Reply does not address this ticket's topic ({feature}).")
     return QaJudgement(accuracy=accuracy, empathy=empathy, resolved=accuracy >= 60 and empathy >= 50, issues=issues,
                        better_reply="Дякуємо за звернення! " + REPLIES.get(verdict if verdict in REPLIES else "unclear")["uk"])
 

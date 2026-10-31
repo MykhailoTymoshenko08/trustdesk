@@ -46,3 +46,29 @@ def test_llm_failure_gives_503(client):
     set_llm(Down())
     r = client.post("/api/qa/score", json={"ticket_id": "t_001", "agent_reply": "hello"})
     assert r.status_code == 503 and r.json()["error"]["code"] == "llm_unavailable"
+
+
+HOMEWORK_REPLY = ("Дякуємо за звернення! Домашнє завдання з'являється після того, як репетитор відмітить урок завершеним. "
+                  "Будь ласка, перевірте розділ через кілька хвилин.")
+
+
+def test_correct_sounding_reply_to_the_wrong_ticket_scores_low(client):
+    right = client.post("/api/qa/score", json={"ticket_id": "t_001", "agent_reply": HOMEWORK_REPLY}).json()
+    wrong = client.post("/api/qa/score", json={"ticket_id": "t_005", "agent_reply": HOMEWORK_REPLY}).json()  # double charge
+    assert right["score"] >= 80 and right["resolved"]
+    assert wrong["accuracy"] < 20 and not wrong["resolved"] and wrong["score"] < 50
+    assert any("topic" in i for i in wrong["issues"])
+
+
+def test_prompt_contains_ticket_triage_evidence_and_docs(client, db):
+    from app.services.qa import build_prompt
+
+    t = db.get(Ticket, "t_001")
+    p = build_prompt(t, "reply", t.triage)
+    assert t.text in p and "verdict=user_error" in p and "feature=homework" in p
+    assert "evidence:\n- [" in p and "<docs>\n[homework/" in p
+
+
+def test_missing_ticket_id_is_422(client):
+    assert client.post("/api/qa/score", json={"agent_reply": "x"}).status_code == 422
+    assert client.post("/api/qa/score", json={"ticket_id": "", "agent_reply": "x"}).status_code == 422

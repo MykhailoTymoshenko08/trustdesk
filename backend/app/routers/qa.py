@@ -17,7 +17,7 @@ def score(body: QaScoreIn, db: Session = Depends(get_db)):
     if not ticket:
         raise ApiError(404, "ticket_not_found", f"ticket {body.ticket_id} not found")
     try:
-        return qa.score_reply(ticket, body.agent_reply)
+        return qa.score_reply(ticket, body.agent_reply, db)
     except LLMUnavailable:
         raise ApiError(503, "llm_unavailable", "the model could not judge this reply, try again")
 

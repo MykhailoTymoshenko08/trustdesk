@@ -64,7 +64,7 @@ Demo flow via curl: `POST /api/demo/reset` -> `POST /api/demo/wave` -> `GET /api
 -> `POST /api/incidents/inc_1/execute` (twice: the second run executes 0) -> `GET /api/incidents/inc_1/devcard`. Extras: `GET /api/qa` (scored human replies), `POST /api/qa/score`, `GET /api/incidents/inc_1/gotcha`.
 
 ## Tests
-**75** tests, all green in mock mode (`cd backend && pytest`): policy table, idempotency, impact numbers,
+**78** tests, all green in mock mode (`cd backend && pytest`): policy table, idempotency, impact numbers,
 matcher grouping and concurrency, injection can't trigger a refund, LLM failure -> `needs_human`, JSON repair, eval maths, QA scoring, gotcha drafts.
 
 ## Eval results
