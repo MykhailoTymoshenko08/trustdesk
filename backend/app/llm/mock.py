@@ -56,7 +56,8 @@ def _refs(block: str) -> list[tuple[str, str]]:
 def _classify(msg: str) -> tuple[str, str]:
     """(feature, intent) from keywords"""
     low = msg.lower()
-    if any(k in low for k in RESCHEDULE) and TIME_WRONG.search(low):
+    two_times = len(re.findall(r"\d{1,2}[:.]\d{2}", low)) >= 2
+    if (any(k in low for k in RESCHEDULE) and TIME_WRONG.search(low)) or two_times:
         return "lesson-reschedule", "lesson_time_wrong_after_reschedule"
     if any(k in low for k in HOMEWORK):
         return "homework", "homework_not_visible"
@@ -82,12 +83,12 @@ def mock_triage(prompt: str) -> TriageDraft:
     err_events = [r for r, t in events if "ERR_" in t and feature_matches(t, feature)]
     if feature == "lesson-reschedule":
         if err_events:
-            doc = [r for r, t in docs if r.startswith("lesson-reschedule/") and "utc" in t.lower()][:1]
+            doc = _pick(docs, "lesson-reschedule/", "utc")
             return draft("bug", 0.93, err_events[:2] + doc)
         return draft("unclear", 0.45, [])
     if feature == "homework":
         empty = [r for r, t in events if "homework_view_empty" in t][:1]
-        doc = [r for r, t in docs if r.startswith("homework/") and "complete" in t.lower()][:1]
+        doc = _pick(docs, "homework/", "visible", "complete")
         return draft("user_error", 0.9 if doc else 0.7, empty + doc)
     if feature == "payments":
         if intent == "double_charge":
@@ -98,6 +99,15 @@ def mock_triage(prompt: str) -> TriageDraft:
     if intent == "general_question":
         return draft("request", 0.8, [])
     return draft("unclear", 0.3, [])
+
+
+def _pick(docs: list[tuple[str, str]], prefix: str, *keywords: str) -> list[str]:
+    """first doc ref under prefix matching the earliest keyword"""
+    for kw in keywords:
+        for ref, text in docs:
+            if ref.startswith(prefix) and kw in text.lower():
+                return [ref]
+    return []
 
 
 def feature_matches(event_text: str, feature: str) -> bool:

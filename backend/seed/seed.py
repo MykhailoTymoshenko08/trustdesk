@@ -112,6 +112,11 @@ def build_money(now: datetime) -> tuple[list[Payment], list[Subscription], list[
     payments += [Payment(id="pay_dup_a", user_id=uid(DOUBLE_CHARGE_USER), amount_cents=18000, at=at),
                  Payment(id="pay_dup_b", user_id=uid(DOUBLE_CHARGE_USER), amount_cents=18000,
                          at=at + timedelta(seconds=4))]
+    events += [
+        Event(id=f"ev_pay_{k}", user_id=uid(DOUBLE_CHARGE_USER), at=at + timedelta(seconds=4 * k),
+              feature="payments", event="payment_charged", payload={"amount_cents": 18000, "package": "8 lessons"})
+        for k in (0, 1)
+    ]
     return payments, subs, events
 
 
