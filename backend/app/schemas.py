@@ -66,3 +66,20 @@ class Impact(BaseModel):
     missed_lessons: int
     money_at_risk_cents: int
     breakdown: ImpactBreakdown
+
+
+PolicyDecisionName = Literal["auto", "needs_approval", "forbidden"]
+
+
+class PolicyResult(BaseModel):
+    decision: PolicyDecisionName
+    rule: str
+
+
+class ActionProposal(BaseModel):
+    action: str
+    user_id: str
+    params: dict = {}
+    reason: str = ""
+    policy: PolicyResult | None = None
+    idempotency_key: str
