@@ -89,7 +89,8 @@ def build_plan(db: Session, inc: Incident) -> PlanOut:
                                        f"restore requested time of lesson {lesson.id}"))
 
     injected: set[str] = set()
-    for t in _refund_requests(db, set(affected) | authors | _flagged_users(db)):
+    # only users linked to this incident (affected or reporting) can get a refund proposal
+    for t in _refund_requests(db, set(affected) | authors):
         flagged = bool((t.triage or {}).get("injection_detected"))
         if flagged:
             injected.add(t.user_id)
@@ -105,11 +106,6 @@ def build_plan(db: Session, inc: Incident) -> PlanOut:
     db.add(Plan(id=plan_id, incident_id=inc.id, created_at=now, proposals=[p.model_dump() for p in proposals]))
     db.commit()
     return PlanOut(plan_id=plan_id, proposals=proposals, summary=get_policy().summarize(proposals))
-
-
-def _flagged_users(db: Session) -> set[str]:
-    return {t.user_id for t in db.scalars(select(Ticket).where(Ticket.status == "needs_human"))
-            if (t.triage or {}).get("injection_detected")}
 
 
 def _refund_amount(ticket: Ticket, lesson: Lesson | None, flagged: bool) -> int:
