@@ -6,7 +6,7 @@ from typing import TypeVar
 
 from pydantic import BaseModel
 
-from app.schemas import ReplyTemplate, SameRootCause, TriageDraft
+from app.schemas import QaJudgement, ReplyTemplate, SameRootCause, TriageDraft
 
 T = TypeVar("T", bound=BaseModel)
 
@@ -127,6 +127,42 @@ def mock_same_cause(prompt: str) -> SameRootCause:
     return SameRootCause(same=same, reason="mock keyword match")
 
 
+RUDE = ("самі розбирайтеся", "не наша проблема", "not my problem", "your fault", "stupid", "ваша проблема")
+POLITE = ("дякуємо", "вибачте", "перепрошуємо", "добрий день", "sorry", "thank", "hi!", "hello")
+ACK_BUG = ("помил", "виправ", "bug", "fix", "проблем", "збій")
+ACK_TUTOR = ("репетитор", "tutor", "завершен", "complet")
+
+
+def mock_qa(prompt: str) -> QaJudgement:
+    verdict = (re.search(r"verdict=(\w+)", prompt) or [None, "unknown"])[1]
+    reply = _section(prompt, "agent_reply").lower()
+    issues: list[str] = []
+    empathy = 75
+    if any(k in reply for k in RUDE):
+        empathy = 10
+        issues.append("Tone is dismissive or rude towards the customer.")
+    elif any(k in reply for k in POLITE):
+        empathy = 90
+    accuracy = 80
+    if verdict == "user_error" and not any(k in reply for k in ACK_TUTOR):
+        accuracy = 20
+        issues.append("Does not explain that homework appears after the tutor completes the lesson.")
+    elif verdict == "user_error" and any(k in reply for k in ("bug", "збій", "reinstall")):
+        accuracy = 20
+        issues.append("Calls expected behaviour a bug.")
+    elif verdict == "bug" and not any(k in reply for k in ACK_BUG):
+        accuracy = 35
+        issues.append("Does not acknowledge the problem on our side.")
+    elif "reinstall" in reply or "bug in our app" in reply:
+        accuracy = 20
+        issues.append("Contradicts the documented flow.")
+    if verdict == "bug" and any(k in reply for k in RUDE):
+        accuracy = min(accuracy, 30)
+        issues.append("Denies a charge that the logs show was duplicated.")
+    return QaJudgement(accuracy=accuracy, empathy=empathy, resolved=accuracy >= 60 and empathy >= 50, issues=issues,
+                       better_reply="Дякуємо за звернення! " + REPLIES.get(verdict if verdict in REPLIES else "unclear")["uk"])
+
+
 def _embed_one(text: str, dim: int = 64) -> list[float]:
     vec = [0.0] * dim
     for tok in re.findall(r"\w+", text.lower()):
@@ -142,6 +178,8 @@ class MockLLM:
             return mock_triage(prompt)  # type: ignore[return-value]
         if schema is SameRootCause:
             return mock_same_cause(prompt)  # type: ignore[return-value]
+        if schema is QaJudgement:
+            return mock_qa(prompt)  # type: ignore[return-value]
         if schema is ReplyTemplate:
             return mock_template(prompt)  # type: ignore[return-value]
         raise NotImplementedError(f"no mock fixture for {schema.__name__}")

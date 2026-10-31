@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session
 
 from app import clock
 from app.db import Base, SessionLocal, engine, init_db
-from app.models import Event, Lesson, Payment, Subscription, Ticket, Tutor, User
+from app.models import Event, Lesson, Payment, QaReply, Subscription, Ticket, Tutor, User
 
 DATA = Path(__file__).parent / "data"
 N_USERS = 60
@@ -132,6 +132,19 @@ def build_tickets(now: datetime, with_wave: bool) -> list[Ticket]:
     ]
 
 
+def build_qa_replies() -> list[QaReply]:
+    """three demo human-agent replies to baseline tickets: good, rude, factually wrong"""
+    return [QaReply(id=f"qa_{i}", ticket_id=tid, agent=agent, reply=text) for i, (tid, agent, text) in enumerate([
+        ("t_001", "Iryna (support)", "Добрий день! Дякуємо за звернення. Домашнє завдання з'являється після того, як репетитор "
+                                    "відмітить урок завершеним, тож зазвичай це кілька хвилин після заняття. Будь ласка, "
+                                    "перевірте розділ ще раз, а якщо завдання не з'явиться за годину, напишіть нам."),
+        ("t_005", "Taras (support)", "Платіж пройшов нормально, система не помиляється. Самі розбирайтеся зі своїм банком, "
+                                    "це не наша проблема."),
+        ("t_002", "Oleh (support)", "Hi! This is a known bug in our app: homework is generated right when the lesson starts. "
+                                   "Please reinstall the app and it will show up."),
+    ], 1)]
+
+
 def load_wave_tickets() -> list[dict]:
     """incident wave as plain dicts (user_id, channel, text) for /demo/wave"""
     return load_json("tickets.json")["wave"]
@@ -152,6 +165,8 @@ def seed(session: Session, with_wave: bool = False) -> None:
     payments, subs, extra = build_money(now)
     session.add_all([*payments, *subs, *extra])
     session.add_all(build_tickets(now, with_wave))
+    session.flush()
+    session.add_all(build_qa_replies())
     session.commit()
 
 

@@ -45,6 +45,9 @@ def triage_baseline(factory: sessionmaker) -> int:
             ticket = db.get(Ticket, tid)
             if ticket and ticket.status == "new":
                 process_ticket(db, ticket)
+    from app.services.qa import score_pending_in_background
+
+    score_pending_in_background(factory)  # judge the seeded human replies once tickets are triaged
     return len(ids)
 
 

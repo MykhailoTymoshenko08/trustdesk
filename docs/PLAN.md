@@ -158,6 +158,8 @@ Base: `http://localhost:8000/api`. All JSON. Times in ISO 8601 UTC. Money in USD
 | GET | `/metrics` | – | `{ tickets_total, auto_resolved_pct, avg_handle_time_saved_min, incidents_open }` |
 | POST | `/demo/reset` | – | `{ ok }` — reseed db |
 | POST | `/demo/wave` | `{ count: 12, interval_ms: 800 }` | `{ started: true }` — streams the incident tickets in |
+| POST | `/qa/score` | `{ ticket_id, agent_reply }` | `{ accuracy, empathy, resolved, score, issues[], better_reply }` — Gemma judges a human agent reply against triage + docs; `score` (0-100) = 0.5·accuracy + 0.3·empathy + 0.2·resolved, computed by code |
+| GET | `/qa` | – | `QaEntry[]` = `{ id, ticket_id, agent, ticket_text, agent_reply, accuracy, empathy, resolved, score, issues[], better_reply }` — 3 seeded demo replies (good, rude, factually wrong), scored |
 
 Errors: `{ "error": { "code": "…", "message": "…" } }` with proper HTTP status.
 

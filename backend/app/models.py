@@ -121,3 +121,13 @@ class Message(Base):
     incident_id: Mapped[str | None] = mapped_column(String, nullable=True)
     text: Mapped[str] = mapped_column(Text)
     at: Mapped[datetime] = mapped_column(DateTime)
+
+
+class QaReply(Base):
+    """a human agent's reply to a ticket, with its cached QA verdict"""
+    __tablename__ = "qa_replies"
+    id: Mapped[str] = mapped_column(String, primary_key=True)
+    ticket_id: Mapped[str] = mapped_column(ForeignKey("tickets.id"), index=True)
+    agent: Mapped[str] = mapped_column(String)
+    reply: Mapped[str] = mapped_column(Text)
+    verdict: Mapped[dict | None] = mapped_column(JSON, nullable=True)
