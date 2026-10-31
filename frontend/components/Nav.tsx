@@ -8,6 +8,9 @@ import { api, USE_MOCK } from "@/lib/api";
 const LINKS = [
   { href: "/", label: "Inbox" },
   { href: "/incidents", label: "Incidents" },
+  { href: "/devcard", label: "Dev card" },
+  { href: "/audit", label: "Audit" },
+  { href: "/trust", label: "Trust" },
 ];
 
 export function Nav() {

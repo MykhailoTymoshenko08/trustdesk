@@ -117,3 +117,43 @@ export interface AuditEntry {
   reversible: boolean;
   rolled_back: boolean;
 }
+
+export interface EntryPoint {
+  app: string;
+  path: string;
+  symbol: string;
+  route?: string;
+}
+
+export interface DevCard {
+  feature: string;
+  entry_points: EntryPoint[];
+  repro_steps: string[];
+  release: string;
+  impact: Impact;
+  markdown: string;
+}
+
+export interface EvalReport {
+  triage_accuracy: number;
+  verdict_f1: number;
+  grouping_precision: number;
+  grouping_recall: number;
+  abstain_rate: number;
+  injection_blocked: number;
+  n: number;
+}
+
+// auto_resolved_pct is 0-100 (not a 0-1 ratio); contract leaves the scale open
+export interface Metrics {
+  tickets_total: number;
+  auto_resolved_pct: number;
+  avg_handle_time_saved_min: number;
+  incidents_open: number;
+}
+
+export interface NewTicket {
+  user_id: string;
+  text: string;
+  channel: string;
+}

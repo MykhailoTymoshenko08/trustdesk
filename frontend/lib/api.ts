@@ -1,9 +1,14 @@
 // api client - talks to the backend, or to lib/mock.ts when NEXT_PUBLIC_USE_MOCK=true
 import type {
+  AuditEntry,
+  DevCard,
+  EvalReport,
   ExecuteRequest,
   ExecuteResult,
   Incident,
   IncidentDetail,
+  Metrics,
+  NewTicket,
   Plan,
   Ticket,
 } from "./types";
@@ -42,6 +47,20 @@ export const api = {
     USE_MOCK ? (await mock()).createPlan(id) : post<Plan>(`/incidents/${id}/plan`),
   execute: async (id: string, req: ExecuteRequest): Promise<ExecuteResult> =>
     USE_MOCK ? (await mock()).executePlan(id, req) : post<ExecuteResult>(`/incidents/${id}/execute`, req),
+  createTicket: async (body: NewTicket): Promise<Ticket> =>
+    USE_MOCK ? (await mock()).createTicket(body) : post<Ticket>("/tickets", body),
+  devcard: async (id: string): Promise<DevCard> =>
+    USE_MOCK ? (await mock()).getDevCard(id) : http<DevCard>(`/incidents/${id}/devcard`),
+  audit: async (incidentId?: string): Promise<AuditEntry[]> =>
+    USE_MOCK
+      ? (await mock()).listAudit(incidentId)
+      : http<AuditEntry[]>(`/audit${incidentId ? `?incident_id=${incidentId}` : ""}`),
+  rollback: async (id: string, by: string): Promise<AuditEntry> =>
+    USE_MOCK ? (await mock()).rollbackAudit(id, by) : post<AuditEntry>(`/audit/${id}/rollback`, { by }),
+  eval: async (): Promise<EvalReport> =>
+    USE_MOCK ? (await mock()).getEval() : http<EvalReport>("/eval"),
+  metrics: async (): Promise<Metrics> =>
+    USE_MOCK ? (await mock()).getMetrics() : http<Metrics>("/metrics"),
   demoReset: async (): Promise<{ ok: boolean }> =>
     USE_MOCK ? (await mock()).resetDemo() : post<{ ok: boolean }>("/demo/reset"),
   demoWave: async (): Promise<{ started: boolean }> =>

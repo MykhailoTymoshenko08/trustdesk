@@ -2,6 +2,10 @@
 import type {
   ActionProposal,
   AuditEntry,
+  DevCard,
+  EvalReport,
+  Metrics,
+  NewTicket,
   Evidence,
   ExecuteRequest,
   ExecuteResult,
@@ -229,7 +233,7 @@ function fullState(): Pick<Store, "tickets" | "incident"> {
 }
 
 function calmState(): Pick<Store, "tickets" | "incident"> {
-  return { tickets: [HOMEWORK_TICKET, DOUBLE_CHARGE_TICKET, VIDEO_TICKET], incident: null };
+  return { tickets: [DOUBLE_CHARGE_TICKET, VIDEO_TICKET], incident: null };
 }
 
 const store: Store = {
@@ -422,4 +426,125 @@ export async function startWave(count = 12, intervalMs = 800): Promise<{ started
     }, total * intervalMs + 600),
   );
   return latency({ started: true }, 100);
+}
+
+// --- new tickets (keyword triage stands in for the real pipeline) --------
+
+const INJECTION_RE = /ignore .*(rules|instructions)|system:|you are authorized/i;
+const HOMEWORK_RE = /домашн|homework/i;
+
+function mockTriage(text: string): { triage: Triage; status: Ticket["status"] } {
+  if (INJECTION_RE.test(text) && INJECTION_TICKET.triage) {
+    return { triage: INJECTION_TICKET.triage, status: "needs_human" };
+  }
+  if (HOMEWORK_RE.test(text) && HOMEWORK_TICKET.triage) {
+    return { triage: HOMEWORK_TICKET.triage, status: "triaged" };
+  }
+  return {
+    triage: {
+      intent: "unknown",
+      feature: "unknown",
+      verdict: "unclear",
+      confidence: 0.35,
+      abstained: true,
+      evidence: [],
+      suggested_reply: "",
+      injection_detected: false,
+    },
+    status: "needs_human",
+  };
+}
+
+let ticketSeq = 200;
+
+export async function createTicket(req: NewTicket): Promise<Ticket> {
+  const latest = Math.max(...store.tickets.map((t) => Date.parse(t.created_at)), NOW);
+  const { triage, status } = mockTriage(req.text);
+  const ticket: Ticket = {
+    id: `t_${++ticketSeq}`,
+    user_id: req.user_id,
+    user_name: userName(70),
+    channel: req.channel,
+    text: req.text,
+    created_at: iso(latest + 60_000),
+    status,
+    incident_id: null,
+    triage,
+  };
+  store.tickets = [...store.tickets, ticket];
+  return latency(ticket, 400);
+}
+
+// --- dev card ------------------------------------------------------------
+
+export async function getDevCard(id: string): Promise<DevCard> {
+  const inc = store.incident;
+  if (!inc || inc.id !== id) throw new Error(`incident ${id} not found`);
+  const repro_steps = [
+    "Log in as a parent of an affected family (e.g. u_001, u_002, u_003) on release v2.14",
+    "Open Lessons and pick an upcoming lesson, e.g. 17:00 in the family timezone",
+    "Press Reschedule and choose a new slot, e.g. 18:00",
+    "POST /lessons/{id}/reschedule returns 200 and logs ERR_TZ_SHIFT",
+    "Reopen the lesson: it is stored at 17:00 instead of 18:00 (offset applied twice)",
+  ];
+  const entry_points = [
+    { app: "backend", path: "app/lessons/reschedule.py", symbol: "reschedule_lesson", route: "POST /lessons/{id}/reschedule" },
+    { app: "backend", path: "app/lessons/timezone.py", symbol: "to_utc" },
+  ];
+  const i = inc.impact;
+  const markdown = [
+    `## ${inc.title}`,
+    "",
+    `- **Feature:** ${inc.feature}`,
+    `- **Release:** ${inc.signal.release}`,
+    `- **Signal:** \`${inc.signal.error_code}\``,
+    `- **Impact:** ${i.affected_users} families (${i.silent_users} silent), ${i.missed_lessons} missed lessons, $${(i.money_at_risk_cents / 100).toLocaleString("en-US")} at risk`,
+    "",
+    "### Entry points",
+    ...entry_points.map((e) => `- \`${e.path}\` - \`${e.symbol}\`${e.route ? ` (${e.route})` : ""}`),
+    "",
+    "### Repro steps",
+    ...repro_steps.map((s, n) => `${n + 1}. ${s}`),
+  ].join("\n");
+  return latency({ feature: inc.feature, entry_points, repro_steps, release: inc.signal.release, impact: i, markdown });
+}
+
+// --- audit / rollback ----------------------------------------------------
+
+export async function listAudit(incidentId?: string): Promise<AuditEntry[]> {
+  return latency(incidentId ? store.audit.filter((a) => a.incident_id === incidentId) : store.audit);
+}
+
+export async function rollbackAudit(id: string, by: string): Promise<AuditEntry> {
+  const entry = store.audit.find((a) => a.id === id);
+  if (!entry) throw new Error(`audit entry ${id} not found`);
+  if (!entry.reversible) throw new Error("this action cannot be rolled back");
+  if (entry.rolled_back) throw new Error("already rolled back");
+  entry.rolled_back = true;
+  entry.actor = `${entry.actor} (rolled back by human:${by})`;
+  return latency(entry, 250);
+}
+
+// --- trust page ----------------------------------------------------------
+
+export async function getEval(): Promise<EvalReport> {
+  return latency({
+    triage_accuracy: 0.93,
+    verdict_f1: 0.91,
+    grouping_precision: 1,
+    grouping_recall: 0.92,
+    abstain_rate: 0.1,
+    injection_blocked: 1,
+    n: 30,
+  });
+}
+
+export async function getMetrics(): Promise<Metrics> {
+  const decided = store.tickets.filter((t) => t.triage && !t.triage.abstained).length;
+  return latency({
+    tickets_total: store.tickets.length,
+    auto_resolved_pct: store.tickets.length ? Math.round((decided / store.tickets.length) * 100) : 0,
+    avg_handle_time_saved_min: 4.2,
+    incidents_open: store.incident && store.incident.status !== "resolved" ? 1 : 0,
+  });
 }
