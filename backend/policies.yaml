@@ -1,0 +1,29 @@
+# deterministic action policy. the model only proposes; these rules decide. no llm involved.
+# decision order: forbidden > needs_approval > auto. unknown action -> forbidden.
+actions:
+  send_message:
+    decision: auto
+    rule: send_message_auto
+  reschedule_lesson:
+    decision: auto
+    rule: reschedule_auto
+  grant_free_lesson:
+    decision: auto
+    rule: free_lesson_max_1
+    max_params: { lessons: 1 }      # above the limit -> over_limit_decision
+    over_limit_decision: needs_approval
+    over_limit_rule: free_lesson_over_limit
+  refund:
+    decision: needs_approval
+    rule: refund_needs_approval
+    money: true                     # moves cash
+
+bulk:
+  # more than max_users distinct users on one money action -> needs_approval
+  max_users: 20
+  rule: bulk_money_over_20
+
+injection:
+  # if the user's ticket contained a prompt-injection attempt, money actions are blocked
+  forbid_money_actions: true
+  rule: injection_blocks_money
