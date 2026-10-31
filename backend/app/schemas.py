@@ -161,3 +161,42 @@ class DevCard(BaseModel):
     release: str | None
     impact: Impact
     markdown: str
+
+
+class QaJudgement(BaseModel):
+    """what the model returns when judging an agent reply; the final score is computed by code"""
+
+    accuracy: int = Field(ge=0, le=100)
+    empathy: int = Field(ge=0, le=100)
+    resolved: bool
+    issues: list[str] = []
+    better_reply: str = ""
+
+
+class QaScoreIn(BaseModel):
+    ticket_id: str
+    agent_reply: str = Field(min_length=1, max_length=4000)
+
+
+class QaVerdict(QaJudgement):
+    score: int = Field(ge=0, le=100)
+
+
+class QaEntry(QaVerdict):
+    id: str
+    ticket_id: str
+    agent: str
+    ticket_text: str
+    agent_reply: str
+
+
+class GotchaDraft(BaseModel):
+    """model-written parts of a known-gotchas entry; log signature, release and counts come from code"""
+
+    symptom: str = Field(min_length=5, max_length=400)
+    support_answer: str = Field(min_length=5, max_length=600)
+
+
+class GotchaOut(BaseModel):
+    file: str
+    diff: str

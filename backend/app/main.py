@@ -10,7 +10,7 @@ from app import errors
 from app.config import get_settings
 from app.db import SessionLocal, init_db
 from app.models import User
-from app.routers import demo, incidents, misc, tickets
+from app.routers import demo, incidents, misc, qa, tickets
 
 api = APIRouter(prefix="/api")
 
@@ -20,7 +20,7 @@ def health() -> dict:
     return {"ok": True, "llm_mode": get_settings().llm_mode}
 
 
-for r in (tickets.router, incidents.router, misc.router, demo.router):
+for r in (tickets.router, incidents.router, misc.router, qa.router, demo.router):
     api.include_router(r)
 
 

@@ -150,6 +150,7 @@ Base: `http://localhost:8000/api`. All JSON. Times in ISO 8601 UTC. Money in USD
 | GET | `/incidents` | – | `Incident[]` |
 | GET | `/incidents/{id}` | – | `{ incident: Incident, tickets: Ticket[], silent_users: {id,name,last_error_at}[] }` |
 | GET | `/incidents/{id}/devcard` | – | `{ feature, entry_points[], repro_steps[], release, impact, markdown }` |
+| GET | `/incidents/{id}/gotcha` | – | `{ file: "docs/features/<feature>/known-gotchas.md", diff: "<markdown to append>" }` — Gemma drafts symptom + support answer; log signature, release and counts come from code. Nothing is written to disk |
 | POST | `/incidents/{id}/plan` | – | `{ plan_id, proposals: ActionProposal[], summary: {auto, needs_approval, forbidden} }` (dry-run, nothing executed) |
 | POST | `/incidents/{id}/execute` | `{ plan_id, approved_by, include: ["auto","needs_approval"] }` | `{ executed, skipped_duplicate, skipped_policy, failed, audit_ids[] }` (counts; `skipped_policy` = forbidden or not in `include`) |
 | POST | `/audit/{id}/rollback` | `{ by }` | `AuditEntry` |
@@ -158,6 +159,8 @@ Base: `http://localhost:8000/api`. All JSON. Times in ISO 8601 UTC. Money in USD
 | GET | `/metrics` | – | `{ tickets_total, auto_resolved_pct, avg_handle_time_saved_min, incidents_open }` |
 | POST | `/demo/reset` | – | `{ ok }` — reseed db |
 | POST | `/demo/wave` | `{ count: 12, interval_ms: 800 }` | `{ started: true }` — streams the incident tickets in |
+| POST | `/qa/score` | `{ ticket_id, agent_reply }` | `{ accuracy, empathy, resolved, score, issues[], better_reply }` — Gemma judges a human agent reply against triage + docs; `score` (0-100) = 0.5·accuracy + 0.3·empathy + 0.2·resolved, computed by code |
+| GET | `/qa` | – | `QaEntry[]` = `{ id, ticket_id, agent, ticket_text, agent_reply, accuracy, empathy, resolved, score, issues[], better_reply }` — 3 seeded demo replies (good, rude, factually wrong), scored |
 
 Errors: `{ "error": { "code": "…", "message": "…" } }` with proper HTTP status.
 
