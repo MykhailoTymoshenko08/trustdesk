@@ -280,7 +280,13 @@ function ResolutionPanel({ detail, onExecuted }: { detail: IncidentDetail; onExe
   );
 }
 
-function diffLineTone(line: string): string {
+// the backend returns markdown to append; a unified diff is also rendered with colours
+function isUnifiedDiff(text: string): boolean {
+  return /^(@@|\+\+\+|---) /m.test(text);
+}
+
+function diffLineTone(line: string, unified: boolean): string {
+  if (!unified) return "text-ink/90";
   if (line.startsWith("+++") || line.startsWith("---") || line.startsWith("@@")) return "text-faint";
   if (line.startsWith("+")) return "text-safe";
   if (line.startsWith("-")) return "text-signal";
@@ -345,7 +351,7 @@ function DocsUpdate({ incidentId }: { incidentId: string }) {
           </div>
           <pre className="overflow-x-auto border-l-2 border-faint pl-5 font-mono text-[12.5px] leading-relaxed">
             {gotcha.diff.split("\n").map((line, i) => (
-              <div key={i} className={`whitespace-pre-wrap ${diffLineTone(line)}`}>
+              <div key={i} className={`whitespace-pre-wrap ${diffLineTone(line, isUnifiedDiff(gotcha.diff))}`}>
                 {line || " "}
               </div>
             ))}
