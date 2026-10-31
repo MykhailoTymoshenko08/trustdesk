@@ -6,7 +6,7 @@ from typing import TypeVar
 
 from pydantic import BaseModel
 
-from app.schemas import TriageDraft
+from app.schemas import ReplyTemplate, SameRootCause, TriageDraft
 
 T = TypeVar("T", bound=BaseModel)
 
@@ -114,9 +114,11 @@ def feature_matches(event_text: str, feature: str) -> bool:
     return f"feature={feature}" in event_text or "feature=" not in event_text
 
 
-class SameRootCause(BaseModel):
-    same: bool
-    reason: str = ""
+def mock_template(prompt: str) -> ReplyTemplate:
+    return ReplyTemplate(body=(
+        "Вітаємо, {name}! Через помилку в нашому оновленні час вашого перенесеного уроку ({lesson_time}) "
+        "міг відображатися невірно. Ми вже виправили проблему, а за незручності додали вам безкоштовний урок. "
+        "Вибачте, що так сталося."))
 
 
 def mock_same_cause(prompt: str) -> SameRootCause:
@@ -140,6 +142,8 @@ class MockLLM:
             return mock_triage(prompt)  # type: ignore[return-value]
         if schema is SameRootCause:
             return mock_same_cause(prompt)  # type: ignore[return-value]
+        if schema is ReplyTemplate:
+            return mock_template(prompt)  # type: ignore[return-value]
         raise NotImplementedError(f"no mock fixture for {schema.__name__}")
 
     def embed(self, texts: list[str]) -> list[list[float]]:

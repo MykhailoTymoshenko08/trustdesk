@@ -18,7 +18,7 @@ def test_post_ticket_runs_triage(client):
     r = client.post("/api/tickets", json={"user_id": "u_001", "text": "Перенесла на 18:00, а стоїть 17:00", "channel": "chat"})
     assert r.status_code == 201
     body = r.json()
-    assert body["status"] == "triaged" and body["triage"]["verdict"] == "bug"
+    assert body["status"] == "in_incident" and body["incident_id"] == "inc_1" and body["triage"]["verdict"] == "bug"
     assert body["created_at"].endswith("Z") and body["user_name"] == "Olena K."
 
 

@@ -10,7 +10,7 @@ from app.errors import ApiError
 from app.models import Ticket, User
 from app.schemas import TicketOut
 from app.services import tickets as svc
-from app.services.triage import triage_ticket
+from app.services.pipeline import process_ticket
 
 router = APIRouter(prefix="/tickets", tags=["tickets"])
 
@@ -48,12 +48,12 @@ def create(body: TicketIn, db: Session = Depends(get_db)):
     if not db.get(User, body.user_id):
         raise ApiError(404, "user_not_found", f"user {body.user_id} not found")
     ticket = svc.create_ticket(db, body.user_id, body.text, body.channel)
-    triage_ticket(db, ticket)
+    process_ticket(db, ticket)
     return svc.to_out(db, ticket)
 
 
 @router.post("/{ticket_id}/retriage", response_model=TicketOut)
 def retriage(ticket_id: str, db: Session = Depends(get_db)):
     ticket = _get(db, ticket_id)
-    triage_ticket(db, ticket)
+    process_ticket(db, ticket)
     return svc.to_out(db, ticket)

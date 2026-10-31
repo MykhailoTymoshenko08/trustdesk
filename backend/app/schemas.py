@@ -83,3 +83,81 @@ class ActionProposal(BaseModel):
     reason: str = ""
     policy: PolicyResult | None = None
     idempotency_key: str
+
+
+class SameRootCause(BaseModel):
+    same: bool
+    reason: str = ""
+
+
+class ReplyTemplate(BaseModel):
+    """apology text with {name} and {lesson_time} placeholders"""
+
+    body: str
+
+
+def iso_z(v: datetime) -> str:
+    return v.isoformat() + "Z"
+
+
+class IncidentSignal(BaseModel):
+    error_code: str | None
+    release: str | None
+
+
+class IncidentOut(BaseModel):
+    id: str
+    title: str
+    feature: str
+    signal: IncidentSignal
+    status: Literal["open", "mitigating", "resolved"]
+    ticket_count: int
+    first_seen: str
+    last_seen: str
+    impact: Impact
+
+
+class AuditEntryOut(BaseModel):
+    id: str
+    at: str
+    actor: str
+    action: str
+    user_id: str
+    incident_id: str | None
+    params: dict
+    result: Literal["ok", "skipped_duplicate", "failed"]
+    reversible: bool
+    rolled_back: bool
+
+
+class PlanOut(BaseModel):
+    plan_id: str
+    proposals: list[ActionProposal]
+    summary: dict[str, int]
+
+
+class ExecuteIn(BaseModel):
+    plan_id: str
+    approved_by: str = Field(min_length=1)
+    include: list[Literal["auto", "needs_approval"]] = ["auto", "needs_approval"]
+
+
+class ExecuteOut(BaseModel):
+    executed: int
+    skipped_duplicate: int
+    skipped_policy: int  # forbidden, or decision class not in `include`
+    failed: int
+    audit_ids: list[str]
+
+
+class RollbackIn(BaseModel):
+    by: str = Field(min_length=1)
+
+
+class DevCard(BaseModel):
+    feature: str
+    entry_points: list[dict]
+    repro_steps: list[str]
+    release: str | None
+    impact: Impact
+    markdown: str

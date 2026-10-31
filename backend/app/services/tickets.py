@@ -1,5 +1,6 @@
 """ticket persistence helpers"""
 from sqlalchemy import func, select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app import clock
@@ -24,8 +25,14 @@ def next_ticket_id(db: Session) -> str:
 
 
 def create_ticket(db: Session, user_id: str, text: str, channel: str = "chat") -> Ticket:
-    ticket = Ticket(id=next_ticket_id(db), user_id=user_id, text=text, channel=channel,
-                    created_at=clock.now(), status="new")
-    db.add(ticket)
-    db.commit()
-    return ticket
+    """id is count-based; retry when a concurrent request took the same id"""
+    for _ in range(10):
+        ticket = Ticket(id=next_ticket_id(db), user_id=user_id, text=text, channel=channel,
+                        created_at=clock.now(), status="new")
+        try:
+            db.add(ticket)
+            db.commit()
+            return ticket
+        except IntegrityError:
+            db.rollback()
+    raise RuntimeError("could not allocate ticket id")

@@ -103,3 +103,21 @@ class Audit(Base):
     idempotency_key: Mapped[str | None] = mapped_column(String, nullable=True)
     reversible: Mapped[bool] = mapped_column(Boolean, default=False)
     rolled_back: Mapped[bool] = mapped_column(Boolean, default=False)
+
+
+class Plan(Base):
+    __tablename__ = "plans"
+    id: Mapped[str] = mapped_column(String, primary_key=True)
+    incident_id: Mapped[str] = mapped_column(ForeignKey("incidents.id"), index=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime)
+    proposals: Mapped[list] = mapped_column(JSON)
+
+
+class Message(Base):
+    """simulated outbound message to a family"""
+    __tablename__ = "messages"
+    id: Mapped[str] = mapped_column(String, primary_key=True)
+    user_id: Mapped[str] = mapped_column(ForeignKey("users.id"), index=True)
+    incident_id: Mapped[str | None] = mapped_column(String, nullable=True)
+    text: Mapped[str] = mapped_column(Text)
+    at: Mapped[datetime] = mapped_column(DateTime)
