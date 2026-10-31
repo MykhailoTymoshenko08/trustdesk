@@ -52,3 +52,17 @@ class TicketOut(BaseModel):
     @field_serializer("created_at")
     def _iso(self, v: datetime) -> str:
         return v.isoformat() + "Z"
+
+
+class ImpactBreakdown(BaseModel):
+    missed_lessons_value_cents: int
+    renewals_at_risk_cents: int
+
+
+class Impact(BaseModel):
+    affected_users: int
+    silent_users: int
+    reporting_users: int
+    missed_lessons: int
+    money_at_risk_cents: int
+    breakdown: ImpactBreakdown
