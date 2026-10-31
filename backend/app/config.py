@@ -20,6 +20,8 @@ class Settings(BaseSettings):
     features_dir: Path = BACKEND_DIR.parent / "docs" / "features"
     policies_path: Path = BACKEND_DIR / "policies.yaml"
     triage_confidence_threshold: float = 0.6
+    # fixed "now" keeps seed numbers reproducible; empty = real clock
+    demo_now: str = "2026-10-31T12:00:00"
 
 
 @lru_cache
