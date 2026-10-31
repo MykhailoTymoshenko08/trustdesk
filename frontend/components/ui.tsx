@@ -1,120 +1,139 @@
+"use client";
+
 import type { ReactNode } from "react";
 import type { Evidence, PolicyDecision, TicketStatus, Verdict } from "@/lib/types";
+import { useCountUp } from "@/lib/motion";
 import { pct } from "@/lib/format";
 
 export const ABSTAIN_THRESHOLD = 0.6;
 
-export function Badge({ className = "", children }: { className?: string; children: ReactNode }) {
+// small quiet section label (sentence case, no pills)
+export function Label({ children, className = "" }: { children: ReactNode; className?: string }) {
+  return <h3 className={`text-[13px] font-medium text-mute ${className}`}>{children}</h3>;
+}
+
+export function Heading({ children, className = "" }: { children: ReactNode; className?: string }) {
   return (
-    <span
-      className={`inline-flex items-center gap-1 rounded-md border px-2 py-0.5 text-[11px] font-medium uppercase tracking-wide ${className}`}
-    >
+    <h1 className={`text-[clamp(34px,5vw,60px)] font-semibold leading-[1.02] tracking-[-0.035em] text-ink ${className}`}>
+      {children}
+    </h1>
+  );
+}
+
+export function CountUp({ value, format }: { value: number; format?: (n: number) => string }) {
+  const v = useCountUp(value);
+  return <>{format ? format(v) : Math.round(v)}</>;
+}
+
+// big mono figure used for the hero numbers
+export function Figure({ children, tone = "text-ink" }: { children: ReactNode; tone?: string }) {
+  return (
+    <span className={`font-mono text-[clamp(44px,7vw,96px)] font-medium leading-none tracking-[-0.05em] tabular-nums ${tone}`}>
       {children}
     </span>
   );
 }
 
-const VERDICT_STYLE: Record<Verdict, string> = {
-  bug: "border-rose-500/30 bg-rose-500/10 text-rose-300",
-  user_error: "border-sky-500/30 bg-sky-500/10 text-sky-300",
-  request: "border-violet-500/30 bg-violet-500/10 text-violet-300",
-  unclear: "border-zinc-600 bg-zinc-800 text-zinc-300",
+const VERDICT_DOT: Record<Verdict, string> = {
+  bug: "bg-signal",
+  user_error: "bg-ink",
+  request: "bg-mute",
+  unclear: "border border-faint",
 };
 
-export function VerdictBadge({ verdict }: { verdict: Verdict }) {
-  return <Badge className={VERDICT_STYLE[verdict]}>{verdict.replace("_", " ")}</Badge>;
-}
-
-const POLICY_STYLE: Record<PolicyDecision, string> = {
-  auto: "border-emerald-500/30 bg-emerald-500/10 text-emerald-300",
-  needs_approval: "border-amber-500/30 bg-amber-500/10 text-amber-300",
-  forbidden: "border-rose-500/40 bg-rose-500/10 text-rose-300",
-};
-const POLICY_ICON: Record<PolicyDecision, string> = { auto: "✓", needs_approval: "◐", forbidden: "✕" };
-
-export function PolicyBadge({ decision, rule }: { decision: PolicyDecision; rule?: string }) {
+export function VerdictMark({ verdict, large = false }: { verdict: Verdict; large?: boolean }) {
   return (
-    <Badge className={POLICY_STYLE[decision]}>
-      <span aria-hidden>{POLICY_ICON[decision]}</span>
-      {decision.replace("_", " ")}
-      {rule && <span className="font-mono normal-case tracking-normal opacity-70">· {rule}</span>}
-    </Badge>
-  );
-}
-
-const STATUS_STYLE: Record<TicketStatus, string> = {
-  new: "text-zinc-400",
-  triaged: "text-emerald-400",
-  in_incident: "text-rose-400",
-  resolved: "text-zinc-500",
-  needs_human: "text-amber-400",
-};
-
-export function StatusDot({ status }: { status: TicketStatus }) {
-  return (
-    <span className={`flex items-center gap-1.5 text-xs ${STATUS_STYLE[status]}`}>
-      <span className="size-1.5 rounded-full bg-current" />
-      {status.replace("_", " ")}
+    <span className={`inline-flex items-center gap-2 text-ink ${large ? "text-xl font-medium tracking-tight" : "text-[13px]"}`}>
+      <span className={`inline-block size-2 rounded-full ${VERDICT_DOT[verdict]}`} />
+      {verdict.replace("_", " ")}
     </span>
   );
 }
 
+export const POLICY_BAR: Record<PolicyDecision, string> = {
+  auto: "bg-safe",
+  needs_approval: "bg-warn",
+  forbidden: "bg-signal",
+};
+
+export const POLICY_LABEL: Record<PolicyDecision, string> = {
+  auto: "Auto",
+  needs_approval: "Needs approval",
+  forbidden: "Forbidden",
+};
+
+const STATUS_COPY: Record<TicketStatus, string> = {
+  new: "new",
+  triaged: "triaged",
+  in_incident: "in incident",
+  resolved: "resolved",
+  needs_human: "needs human",
+};
+
+export function StatusText({ status }: { status: TicketStatus }) {
+  const tone = status === "in_incident" ? "text-signal" : status === "needs_human" ? "text-ink" : "text-faint";
+  return <span className={`text-[13px] ${tone}`}>{STATUS_COPY[status]}</span>;
+}
+
+// thin bar with the abstain threshold marked; value in mono
 export function ConfidenceBar({ value }: { value: number }) {
-  const tone =
-    value < ABSTAIN_THRESHOLD ? "bg-rose-500" : value < 0.8 ? "bg-amber-400" : "bg-emerald-400";
   return (
     <div>
-      <div className="mb-1.5 flex items-baseline justify-between text-xs">
-        <span className="text-zinc-400">Confidence</span>
-        <span className="font-mono text-sm font-semibold text-zinc-100">{pct(value)}</span>
+      <div className="mb-2 flex items-baseline justify-between">
+        <span className="text-[13px] text-mute">Confidence</span>
+        <span className="font-mono text-sm tabular-nums text-ink">{pct(value)}</span>
       </div>
       <div
-        className="relative h-2 rounded-full bg-zinc-800"
+        className="relative h-[2px] bg-line"
         role="meter"
         aria-valuemin={0}
         aria-valuemax={1}
         aria-valuenow={value}
         aria-label="triage confidence"
       >
-        <div className={`h-full rounded-full ${tone}`} style={{ width: pct(value) }} />
-        <div
-          className="absolute -top-1 h-4 w-px bg-zinc-400"
-          style={{ left: pct(ABSTAIN_THRESHOLD) }}
-          title={`abstain below ${pct(ABSTAIN_THRESHOLD)}`}
-        />
+        <div className={`h-full ${value < ABSTAIN_THRESHOLD ? "bg-mute" : "bg-ink"}`} style={{ width: pct(value) }} />
+        <div className="absolute -top-[5px] h-3 w-px bg-faint" style={{ left: pct(ABSTAIN_THRESHOLD) }} />
       </div>
-      <div className="mt-1 text-[10px] text-zinc-500" style={{ marginLeft: `calc(${pct(ABSTAIN_THRESHOLD)} - 36px)` }}>
-        abstain below {pct(ABSTAIN_THRESHOLD)}
+      <div className="mt-2 text-[11px] text-faint" style={{ marginLeft: `calc(${pct(ABSTAIN_THRESHOLD)} - 30px)` }}>
+        abstains below {pct(ABSTAIN_THRESHOLD)}
       </div>
     </div>
   );
 }
 
-export function EvidenceChip({ evidence }: { evidence: Evidence }) {
+// evidence as a log line: mono, quiet, with a left border
+export function EvidenceLine({ evidence }: { evidence: Evidence }) {
   const isLog = evidence.type === "log";
   return (
-    <li className="rounded-lg border border-zinc-800 bg-zinc-900/60 p-3">
-      <div className="mb-1.5 flex items-center gap-2">
-        <span
-          className={`rounded px-1.5 py-0.5 font-mono text-[10px] font-semibold ${
-            isLog ? "bg-amber-400/15 text-amber-300" : "bg-sky-400/15 text-sky-300"
-          }`}
-        >
-          {evidence.type.toUpperCase()}
-        </span>
-        <span className="truncate font-mono text-xs text-zinc-300" title={evidence.ref}>
-          {evidence.ref}
-        </span>
-      </div>
-      <p className={`text-sm text-zinc-400 ${isLog ? "font-mono text-xs" : ""}`}>{evidence.text}</p>
+    <li className={`border-l-2 py-1 pl-4 font-mono text-[12.5px] leading-relaxed ${isLog ? "border-faint" : "border-line"}`}>
+      <span className="mr-3 text-faint">{evidence.type}</span>
+      <span className="mr-3 text-mute">{evidence.ref}</span>
+      <span className="text-ink/90">{evidence.text}</span>
     </li>
   );
 }
 
-export function Card({ className = "", children }: { className?: string; children: ReactNode }) {
-  return <div className={`rounded-xl border border-zinc-800 bg-zinc-900/40 ${className}`}>{children}</div>;
+export function Notice({ tone, children }: { tone: "signal" | "neutral"; children: ReactNode }) {
+  return (
+    <div className={`border-l-[3px] py-1 pl-4 text-[15px] leading-relaxed text-ink ${tone === "signal" ? "border-signal" : "border-faint"}`}>
+      {children}
+    </div>
+  );
 }
 
-export function SectionTitle({ children }: { children: ReactNode }) {
-  return <h3 className="mb-2 text-[11px] font-semibold uppercase tracking-widest text-zinc-500">{children}</h3>;
+export function Button({
+  children,
+  variant = "solid",
+  className = "",
+  ...rest
+}: { variant?: "solid" | "ghost"; children: ReactNode } & React.ButtonHTMLAttributes<HTMLButtonElement>) {
+  const styles =
+    variant === "solid"
+      ? "bg-ink text-bg hover:bg-white active:translate-y-px px-4 py-2 font-medium"
+      : "text-mute hover:text-ink px-2 py-2";
+  return (
+    <button {...rest} className={`text-sm disabled:opacity-40 ${styles} ${className}`}>
+      {children}
+    </button>
+  );
 }

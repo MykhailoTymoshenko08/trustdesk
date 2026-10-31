@@ -1,23 +1,32 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { Badge, Card } from "@/components/ui";
+import { Button, Heading } from "@/components/ui";
 import { api } from "@/lib/api";
 import { timeUtc } from "@/lib/format";
+import { stagger } from "@/lib/motion";
 import type { AuditEntry } from "@/lib/types";
 import { usePolling } from "@/lib/usePolling";
 
 const ROLLBACK_BY = "support.lead";
 const PAGE = 25;
 
-const RESULT_STYLE: Record<AuditEntry["result"], string> = {
-  ok: "border-emerald-500/30 bg-emerald-500/10 text-emerald-300",
-  skipped_duplicate: "border-zinc-600 bg-zinc-800 text-zinc-300",
-  failed: "border-rose-500/30 bg-rose-500/10 text-rose-300",
-};
-
 function canRollback(e: AuditEntry): boolean {
   return e.reversible && !e.rolled_back && e.result === "ok";
+}
+
+function ResultMark({ e }: { e: AuditEntry }) {
+  if (e.rolled_back) return <span className="text-[13px] text-ink">rolled back</span>;
+  if (e.result === "ok") {
+    return (
+      <span className="flex items-center gap-2 text-[13px] text-ink">
+        <span className="size-1.5 rounded-full bg-safe" />
+        ok
+      </span>
+    );
+  }
+  if (e.result === "failed") return <span className="text-[13px] text-signal">failed</span>;
+  return <span className="text-[13px] text-faint">duplicate skipped</span>;
 }
 
 export default function AuditPage() {
@@ -27,10 +36,11 @@ export default function AuditPage() {
   const [actionError, setActionError] = useState<string | null>(null);
   const [pending, setPending] = useState<string | null>(null);
 
+  const skipped = (data ?? []).filter((e) => e.result === "skipped_duplicate").length;
   const rows = useMemo(
     () =>
       (data ?? [])
-        .filter((e) => !onlyOk || e.result === "ok")
+        .filter((e) => !onlyOk || e.result !== "skipped_duplicate")
         .sort((a, b) => b.at.localeCompare(a.at) || b.id.localeCompare(a.id)),
     [data, onlyOk],
   );
@@ -50,72 +60,49 @@ export default function AuditPage() {
 
   return (
     <div>
-      <div className="mb-6 flex flex-wrap items-end justify-between gap-4">
-        <div>
-          <h1 className="text-xl font-semibold tracking-tight text-zinc-100">Audit log</h1>
-          <p className="text-sm text-zinc-500">Every action, who ran it, and whether it can be undone.</p>
-        </div>
-        <label className="flex items-center gap-2 text-sm text-zinc-400">
-          <input type="checkbox" checked={onlyOk} onChange={(e) => setOnlyOk(e.target.checked)} className="size-4 accent-emerald-400" />
-          Hide skipped duplicates ({(data ?? []).filter((e) => e.result === "skipped_duplicate").length})
+      <Heading>Audit log</Heading>
+      <p className="mt-3 max-w-xl text-[17px] text-mute">Every action, who ran it, and whether it can be undone.</p>
+
+      <div className="mt-10 flex items-center justify-between border-b border-line pb-3">
+        <span className="font-mono text-[12px] text-faint">{rows.length} entries</span>
+        <label className="flex items-center gap-2.5 text-sm text-mute">
+          <input type="checkbox" checked={onlyOk} onChange={(e) => setOnlyOk(e.target.checked)} className="size-4 accent-[#eceef2]" />
+          Hide skipped duplicates ({skipped})
         </label>
       </div>
-      {(error || actionError) && <p className="mb-3 text-sm text-rose-400">{actionError ?? error}</p>}
+      {(error || actionError) && <p className="mt-4 text-sm text-signal">{actionError ?? error}</p>}
 
-      {data && rows.length === 0 && (
-        <Card className="p-10 text-center text-zinc-400">No actions yet - approve a resolution plan to see entries here.</Card>
-      )}
+      {data && rows.length === 0 && <p className="py-12 text-[15px] text-mute">No actions yet. Approve a resolution plan to see entries here.</p>}
 
-      {rows.length > 0 && (
-        <Card className="overflow-hidden">
-          <div className="hidden grid-cols-[70px_80px_1fr_110px_120px_110px] gap-3 border-b border-zinc-800 px-4 py-2 text-[11px] font-semibold uppercase tracking-widest text-zinc-500 md:grid">
-            <span>Time</span>
-            <span>ID</span>
-            <span>Action / actor</span>
-            <span>User</span>
-            <span>Result</span>
-            <span />
+      <div>
+        {rows.slice(0, limit).map((e, i) => (
+          <div
+            key={e.id}
+            style={stagger(i, 18, 300)}
+            className="rise grid grid-cols-[64px_70px_1fr] items-center gap-x-5 border-b border-line py-3 md:grid-cols-[64px_70px_1fr_90px_140px_100px]"
+          >
+            <span className="font-mono text-xs text-faint">{timeUtc(e.at)}</span>
+            <span className="font-mono text-xs text-faint">{e.id}</span>
+            <span className="min-w-0 text-[15px] text-ink">
+              {e.action.replace(/[_:]/g, " ")}
+              <span className="ml-3 text-[13px] text-mute">{e.actor}</span>
+            </span>
+            <span className="font-mono text-xs text-mute">{e.user_id}</span>
+            <ResultMark e={e} />
+            <span className="text-right">
+              {canRollback(e) && (
+                <Button variant="ghost" onClick={() => rollback(e.id)} disabled={pending === e.id} className="!py-0.5 underline underline-offset-4">
+                  {pending === e.id ? "…" : "Roll back"}
+                </Button>
+              )}
+            </span>
           </div>
-          <div className="divide-y divide-zinc-800/70">
-            {rows.slice(0, limit).map((e) => (
-              <div key={e.id} className="grid grid-cols-[70px_80px_1fr] items-center gap-3 px-4 py-2.5 text-sm md:grid-cols-[70px_80px_1fr_110px_120px_110px]">
-                <span className="font-mono text-xs text-zinc-500">{timeUtc(e.at)}</span>
-                <span className="font-mono text-xs text-zinc-500">{e.id}</span>
-                <span className="min-w-0">
-                  <span className="text-zinc-200">{e.action.replace(/_/g, " ")}</span>
-                  <span className="ml-2 text-xs text-zinc-500">{e.actor}</span>
-                </span>
-                <span className="font-mono text-xs text-zinc-400">{e.user_id}</span>
-                <span>
-                  {e.rolled_back ? (
-                    <Badge className="border-amber-500/30 bg-amber-500/10 text-amber-300">rolled back</Badge>
-                  ) : (
-                    <Badge className={RESULT_STYLE[e.result]}>{e.result.replace("_", " ")}</Badge>
-                  )}
-                </span>
-                <span className="text-right">
-                  {canRollback(e) && (
-                    <button
-                      onClick={() => rollback(e.id)}
-                      disabled={pending === e.id}
-                      className="rounded-md border border-zinc-700 px-2.5 py-1 text-xs text-zinc-300 hover:border-zinc-500 hover:text-zinc-100 disabled:opacity-50"
-                    >
-                      {pending === e.id ? "…" : "Roll back"}
-                    </button>
-                  )}
-                </span>
-              </div>
-            ))}
-          </div>
-          {rows.length > limit && (
-            <button
-              onClick={() => setLimit((l) => l + PAGE)}
-              className="w-full border-t border-zinc-800 px-4 py-2 text-left text-xs text-zinc-400 hover:text-zinc-100"
-            >
-              Show more ({rows.length - limit} left)
-            </button>
-          )}
-        </Card>
+        ))}
+      </div>
+      {rows.length > limit && (
+        <button onClick={() => setLimit((l) => l + PAGE)} className="mt-4 text-sm text-mute hover:text-ink">
+          Show more ({rows.length - limit} left)
+        </button>
       )}
     </div>
   );
