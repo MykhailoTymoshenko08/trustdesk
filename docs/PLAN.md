@@ -151,7 +151,7 @@ Base: `http://localhost:8000/api`. All JSON. Times in ISO 8601 UTC. Money in USD
 | GET | `/incidents/{id}` | – | `{ incident: Incident, tickets: Ticket[], silent_users: {id,name,last_error_at}[] }` |
 | GET | `/incidents/{id}/devcard` | – | `{ feature, entry_points[], repro_steps[], release, impact, markdown }` |
 | POST | `/incidents/{id}/plan` | – | `{ plan_id, proposals: ActionProposal[], summary: {auto, needs_approval, forbidden} }` (dry-run, nothing executed) |
-| POST | `/incidents/{id}/execute` | `{ plan_id, approved_by, include: ["auto","needs_approval"] }` | `{ executed, skipped_duplicate, failed, audit_ids[] }` |
+| POST | `/incidents/{id}/execute` | `{ plan_id, approved_by, include: ["auto","needs_approval"] }` | `{ executed, skipped_duplicate, skipped_policy, failed, audit_ids[] }` (counts; `skipped_policy` = forbidden or not in `include`) |
 | POST | `/audit/{id}/rollback` | `{ by }` | `AuditEntry` |
 | GET | `/audit` | `?incident_id=` | `AuditEntry[]` |
 | GET | `/eval` | – | `{ triage_accuracy, verdict_f1, grouping_precision, grouping_recall, abstain_rate, injection_blocked, n }` |
